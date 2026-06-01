@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.match_report import MatchReport
@@ -43,3 +44,18 @@ class MatchReportRepository:
         self.db.commit()
         self.db.refresh(match_report)
         return match_report
+
+    def get_by_id_for_user(self, *, match_report_id: int, user_id: int) -> MatchReport | None:
+        statement = select(MatchReport).where(
+            MatchReport.id == match_report_id,
+            MatchReport.user_id == user_id,
+        )
+        return self.db.scalar(statement)
+
+    def list_by_user(self, *, user_id: int) -> list[MatchReport]:
+        statement = (
+            select(MatchReport)
+            .where(MatchReport.user_id == user_id)
+            .order_by(MatchReport.created_at.desc())
+        )
+        return list(self.db.scalars(statement).all())

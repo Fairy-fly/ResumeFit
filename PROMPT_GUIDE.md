@@ -23,6 +23,7 @@ prompts/
   job_analysis.md
   jd_analyzer_v1.md
   match_scorer_v1.md
+  resume_writer_v1.md
   match_report.md
   resume_generation.md
   risk_detection.md
@@ -96,6 +97,30 @@ prompts/
 - 真实性提醒
 
 评分必须基于用户已提供材料，不能声称代表真实招聘结果，不能把缺失技能写成用户已经掌握。
+
+### resume_writer_v1.md
+
+用途：生成岗位定制 Markdown 简历，并输出结构化修改原因。
+
+输入：
+
+- `ResumeProfile`
+- 用户选择的 `Project[]`
+- `JobDescription`
+- `JobAnalysis`
+- `MatchReport`
+
+输出：
+
+- `markdown`：Markdown 简历正文
+- `change_explanations`：每处修改原因，包含 `section`、`reason`、`source`、`uncertain`
+
+要求：
+
+- 不新增用户没有提供的经历、学历、公司、证书、项目成果、技能掌握情况或量化指标。
+- 只能重组、压缩、突出、润色已提供内容。
+- 对不确定内容必须标记 `uncertain: true`。
+- 必须输出稳定 JSON，便于保存到 `ResumeVersion.change_explanations_json` 和 `content_markdown`。
 
 ### resume_generation.md
 

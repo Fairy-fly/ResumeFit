@@ -165,6 +165,7 @@ AI_TIMEOUT_SECONDS=60
 prompts/
   jd_analyzer_v1.md
   match_scorer_v1.md
+  resume_writer_v1.md
   job_analysis.md
   match_report.md
   resume_generation.md
@@ -212,6 +213,7 @@ prompts/
 
 - Markdown 简历内容
 - 生成说明
+- 修改原因 `change_explanations`
 
 ### 真实性风险检测
 

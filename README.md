@@ -265,6 +265,47 @@ Invoke-RestMethod http://localhost:8000/match-reports `
 Remove-Item backend/resumefit.db -ErrorAction SilentlyContinue
 ```
 
+## 定制简历生成模块测试
+
+### API 测试
+
+启动后端并确认 `.env` 中已配置真实 `AI_API_KEY` 后，先确保已经存在：
+
+- 至少一份通用简历。
+- 至少一个项目。
+- 一个已完成分析的 JD。
+- 一个与所选简历、项目和 JD 一致的匹配报告。
+
+生成定制简历：
+
+```powershell
+Invoke-RestMethod http://localhost:8000/resume-versions/generate `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{"resume_profile_id":1,"project_ids":[1],"job_description_id":1,"match_report_id":1}'
+```
+
+返回结果会包含 Markdown 简历正文、修改原因、使用模型、版本类型和关联 ID。接口只生成 Markdown，不会导出 PDF 或 Word。
+
+### 页面测试
+
+1. 启动后端。
+2. 启动前端。
+3. 确认 `/resume` 中已有简历，`/projects` 中已有项目，`/jobs` 中已有已分析 JD，`/analysis` 中已有匹配报告。
+4. 打开 `http://localhost:5173/versions`。
+5. 选择一个匹配报告，页面会带出对应简历、项目和 JD。
+6. 点击“生成定制简历”。
+7. 确认页面显示 Markdown 简历和修改原因。
+8. 点击“复制 Markdown”，确认复制成功。
+
+### Demo SQLite 重置
+
+如果你已经在旧结构下创建过 `resume_versions` 表，Demo 阶段可以删除本地数据库后重启后端：
+
+```powershell
+Remove-Item backend/resumefit.db -ErrorAction SilentlyContinue
+```
+
 ## MVP 不做什么
 
 MVP 阶段不包含以下能力：

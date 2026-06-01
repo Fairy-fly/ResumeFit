@@ -629,3 +629,223 @@ def test_match_report_handles_invalid_ai_response(
 
     assert response.status_code == 502
     assert response.json()["detail"] == "AI response was not valid JSON."
+
+
+def _resume_version_context(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
+    def fake_chat_json(
+        self: AIClient,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.1,
+    ) -> dict[str, object]:
+        if "Resume Writer v1" in system_prompt:
+            assert "Backend General Resume" in user_prompt
+            assert "ResumeFit Demo" in user_prompt
+            assert "Backend Developer" in user_prompt
+            assert temperature == 0.2
+            return {
+                "markdown": "# Backend Developer\n\n## Projects\n- ResumeFit Demo: Built FastAPI APIs and SQLite persistence.",
+                "change_explanations": [
+                    {
+                        "section": "Projects",
+                        "reason": "Highlighted the selected project because it directly supports the JD requirements.",
+                        "source": "ResumeFit Demo project and match report",
+                        "uncertain": False,
+                    }
+                ],
+            }
+
+        if "Match Scorer v1" in system_prompt:
+            return {
+                "score": 86,
+                "strengths": ["FastAPI and SQL experience are supported by the provided resume and project."],
+                "weaknesses": ["Cloud service experience is not clearly supported by the provided materials."],
+                "missing_keywords": ["Cloud services"],
+                "recommended_changes": ["Emphasize backend API and database work without adding new facts."],
+                "truthfulness_warnings": ["Do not claim cloud service ownership unless the user provides evidence."],
+            }
+
+        return {
+            "job_title": "Backend Developer",
+            "job_type": "Backend",
+            "required_skills": ["FastAPI", "SQL"],
+            "bonus_skills": ["Cloud services"],
+            "responsibilities": ["Build backend services."],
+            "keywords": ["FastAPI", "SQL", "Cloud services"],
+            "resume_focus_suggestions": ["Emphasize API and database experience."],
+        }
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_chat_json)
+
+    resume_response = client.post(
+        "/resume-profiles",
+        json={
+            "title": "Backend General Resume",
+            "raw_markdown": "# Resume\nExperienced with FastAPI and SQL.",
+        },
+    )
+    project_response = client.post(
+        "/projects",
+        json={
+            "name": "ResumeFit Demo",
+            "project_type": "Web app",
+            "role": "Solo developer",
+            "tech_stack": ["FastAPI", "SQLite"],
+            "description": "A demo platform for resume tailoring.",
+            "user_contribution": "Built backend APIs and database persistence.",
+            "work_url": "https://example.com",
+        },
+    )
+    job_response = client.post(
+        "/job-descriptions",
+        json={
+            "company_name": "Example Co",
+            "job_title": "Backend Developer",
+            "raw_text": "Build FastAPI services, use SQL, and understand cloud services.",
+        },
+    )
+    job_description_id = job_response.json()["id"]
+    analysis_response = client.post(f"/job-descriptions/{job_description_id}/analyze")
+    assert analysis_response.status_code == 200
+
+    match_response = client.post(
+        "/match-reports",
+        json={
+            "resume_profile_id": resume_response.json()["id"],
+            "project_ids": [project_response.json()["id"]],
+            "job_description_id": job_description_id,
+        },
+    )
+    assert match_response.status_code == 201
+
+    return {
+        "resume_profile_id": resume_response.json()["id"],
+        "project_id": project_response.json()["id"],
+        "job_description_id": job_description_id,
+        "job_analysis_id": analysis_response.json()["id"],
+        "match_report_id": match_response.json()["id"],
+    }
+
+
+def test_generate_resume_version_with_mock_ai(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+    list_match_reports_response = client.get("/match-reports")
+    assert list_match_reports_response.status_code == 200
+    assert list_match_reports_response.json()[0]["id"] == ids["match_report_id"]
+
+    response = client.post(
+        "/resume-versions/generate",
+        json={
+            "resume_profile_id": ids["resume_profile_id"],
+            "project_ids": [ids["project_id"]],
+            "job_description_id": ids["job_description_id"],
+            "match_report_id": ids["match_report_id"],
+        },
+    )
+
+    assert response.status_code == 201
+    resume_version = response.json()
+    assert resume_version["user_id"] == 1
+    assert resume_version["resume_profile_id"] == ids["resume_profile_id"]
+    assert resume_version["job_description_id"] == ids["job_description_id"]
+    assert resume_version["match_report_id"] == ids["match_report_id"]
+    assert resume_version["version_type"] == "tailored"
+    assert "ResumeFit Demo" in resume_version["content_markdown"]
+    assert resume_version["change_explanations"] == [
+        {
+            "section": "Projects",
+            "reason": "Highlighted the selected project because it directly supports the JD requirements.",
+            "source": "ResumeFit Demo project and match report",
+            "uncertain": False,
+        }
+    ]
+    assert resume_version["model_name"] == "deepseek-chat"
+
+
+def test_resume_version_rejects_mismatched_match_report(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+    other_resume_response = client.post(
+        "/resume-profiles",
+        json={"title": "Other Resume", "raw_markdown": "# Other Resume"},
+    )
+
+    response = client.post(
+        "/resume-versions/generate",
+        json={
+            "resume_profile_id": other_resume_response.json()["id"],
+            "project_ids": [ids["project_id"]],
+            "job_description_id": ids["job_description_id"],
+            "match_report_id": ids["match_report_id"],
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Match report does not belong to the selected resume profile."
+
+
+def test_resume_version_requires_api_key(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+    monkeypatch.setattr(settings, "ai_api_key", None)
+    monkeypatch.setattr(AIClient, "chat_json", lambda self, **_: self._ensure_configured())
+
+    response = client.post(
+        "/resume-versions/generate",
+        json={
+            "resume_profile_id": ids["resume_profile_id"],
+            "project_ids": [ids["project_id"]],
+            "job_description_id": ids["job_description_id"],
+            "match_report_id": ids["match_report_id"],
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "AI_API_KEY is not configured."
+
+
+def test_resume_version_handles_invalid_ai_response(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+
+    def fake_resume_writer_error(self: AIClient, **_: object) -> dict[str, object]:
+        raise AIResponseError("AI response was not valid JSON.")
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_resume_writer_error)
+
+    response = client.post(
+        "/resume-versions/generate",
+        json={
+            "resume_profile_id": ids["resume_profile_id"],
+            "project_ids": [ids["project_id"]],
+            "job_description_id": ids["job_description_id"],
+            "match_report_id": ids["match_report_id"],
+        },
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "AI response was not valid JSON."
+
+
+def test_resume_version_requires_project_ids(client: TestClient) -> None:
+    response = client.post(
+        "/resume-versions/generate",
+        json={
+            "resume_profile_id": 1,
+            "project_ids": [],
+            "job_description_id": 1,
+            "match_report_id": 1,
+        },
+    )
+
+    assert response.status_code == 422

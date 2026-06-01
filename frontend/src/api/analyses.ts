@@ -1,4 +1,4 @@
-import { apiPost } from "./client";
+import { apiGet, apiPost } from "./client";
 
 export interface MatchReportCreate {
   resume_profile_id: number;
@@ -27,4 +27,8 @@ export interface MatchReportRead {
 
 export function createMatchReport(payload: MatchReportCreate): Promise<MatchReportRead> {
   return apiPost<MatchReportCreate, MatchReportRead>("/match-reports", payload);
+}
+
+export function listMatchReports(): Promise<MatchReportRead[]> {
+  return apiGet<MatchReportRead[]>("/match-reports");
 }

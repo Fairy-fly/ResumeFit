@@ -82,6 +82,12 @@ class MatchReportService:
         )
         return self._to_read_model(match_report)
 
+    def list_match_reports(self) -> list[MatchReportRead]:
+        return [
+            self._to_read_model(match_report)
+            for match_report in self.match_report_repository.list_by_user(user_id=DEFAULT_USER_ID)
+        ]
+
     def _get_resume_profile(self, resume_profile_id: int) -> ResumeProfile:
         resume_profile = self.resume_profile_repository.get_by_id_for_user(
             resume_profile_id=resume_profile_id,

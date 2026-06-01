@@ -173,6 +173,7 @@ JD 结构化分析结果。
 | version_type | TEXT | base, tailored, manual |
 | content_markdown | TEXT | Markdown 简历内容 |
 | generation_notes | TEXT | 生成说明 |
+| change_explanations_json | TEXT | 修改原因 JSON，说明每处重组、压缩、突出或润色的原因 |
 | risk_report_json | TEXT | 真实性风险结果 JSON |
 | raw_ai_output_json | TEXT | AI 原始输出 |
 | model_name | TEXT | 使用模型 |

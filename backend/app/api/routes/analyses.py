@@ -26,3 +26,9 @@ def create_match_report(
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except AIResponseError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+
+@router.get("", response_model=list[MatchReportRead])
+def list_match_reports(db: Session = Depends(get_db)) -> list[MatchReportRead]:
+    service = MatchReportService(db)
+    return service.list_match_reports()
