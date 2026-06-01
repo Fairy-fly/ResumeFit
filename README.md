@@ -51,6 +51,17 @@ Copy-Item .env.example .env
 
 `.env` 中的 `AI_API_KEY` 只填写本地真实值，不要提交到仓库。
 
+JD 分析模块默认使用 DeepSeek 的 OpenAI-compatible 接口，配置项如下：
+
+```text
+AI_PROVIDER=deepseek
+AI_BASE_URL=https://api.deepseek.com
+AI_API_KEY=your_deepseek_api_key_here
+AI_MODEL=deepseek-chat
+```
+
+如果没有配置真实 `AI_API_KEY`，后端会在调用分析接口时返回明确错误提示。
+
 ### 2. 启动后端
 
 ```powershell
@@ -167,6 +178,49 @@ Invoke-RestMethod http://localhost:8000/projects
 ### Demo SQLite 重置
 
 如果你已经在旧字段结构下启动过后端，SQLite 中的 `projects` 表不会自动增加新字段。Demo 阶段可以删除本地数据库后重启后端，让应用重新创建表：
+
+```powershell
+Remove-Item backend/resumefit.db -ErrorAction SilentlyContinue
+```
+
+## 岗位 JD 分析模块测试
+
+### API 测试
+
+启动后端并确认 `.env` 中已配置真实 `AI_API_KEY` 后，先保存一个 JD：
+
+```powershell
+Invoke-RestMethod http://localhost:8000/job-descriptions `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{"company_name":"示例公司","job_title":"后端开发工程师","raw_text":"负责 FastAPI 服务开发，熟悉 SQL、缓存和云服务。"}'
+```
+
+再调用分析接口：
+
+```powershell
+Invoke-RestMethod http://localhost:8000/job-descriptions/1/analyze -Method Post
+```
+
+查询已保存 JD 列表：
+
+```powershell
+Invoke-RestMethod http://localhost:8000/job-descriptions
+```
+
+### 页面测试
+
+1. 启动后端。
+2. 启动前端。
+3. 打开 `http://localhost:5173/jobs`。
+4. 输入公司名称、岗位名称和 JD 原文。
+5. 点击“保存并分析”。
+6. 确认页面显示岗位概览、必备技能、加分技能、关键词、岗位职责和简历侧重点。
+7. 刷新页面，确认已保存 JD 列表仍然存在。
+
+### Demo SQLite 重置
+
+如果你已经在旧结构下创建过 `job_descriptions` 或 `job_analyses` 表，Demo 阶段可以删除本地数据库后重启后端：
 
 ```powershell
 Remove-Item backend/resumefit.db -ErrorAction SilentlyContinue

@@ -4,11 +4,24 @@ async function parseJson<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function buildError(response: Response): Promise<Error> {
+  try {
+    const payload = (await response.json()) as { detail?: unknown };
+    if (typeof payload.detail === "string" && payload.detail.trim().length > 0) {
+      return new Error(payload.detail);
+    }
+  } catch {
+    // Fall through to the status-only message.
+  }
+
+  return new Error(`Request failed with status ${response.status}`);
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`);
 
   if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`);
+    throw await buildError(response);
   }
 
   return parseJson<T>(response);
@@ -24,7 +37,7 @@ export async function apiPost<TRequest, TResponse>(path: string, payload: TReque
   });
 
   if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`);
+    throw await buildError(response);
   }
 
   return parseJson<TResponse>(response);

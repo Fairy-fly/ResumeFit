@@ -21,6 +21,7 @@ Prompt 必须服务以下原则：
 ```text
 prompts/
   job_analysis.md
+  jd_analyzer_v1.md
   match_report.md
   resume_generation.md
   risk_detection.md
@@ -51,26 +52,27 @@ prompts/
 
 ## 4. Prompt 文件职责
 
-### job_analysis.md
+### jd_analyzer_v1.md
 
 用途：分析岗位 JD。
 
 输入：
 
+- 公司名称
+- 岗位名称
 - 原始 JD 文本
 
 输出：
 
-- 岗位概述
-- 核心职责
+- 岗位名称
+- 岗位类型
 - 必备技能
 - 加分技能
-- 业务领域
+- 核心职责
 - 关键词
-- 隐含要求
 - 简历优化方向
 
-建议输出 JSON，便于存入 `JobAnalysis`。
+必须输出 JSON，便于存入 `JobAnalysis`。不得补写 JD 中没有出现的信息；信息不足时使用空数组或“信息不足”。
 
 ### match_report.md
 
@@ -219,4 +221,3 @@ MVP 建议：
 - 日志中不要打印完整简历原文。
 - 对用户隐私信息做最小必要传输。
 - 后续商业化前应补充隐私政策、数据删除机制和用户授权说明。
-

@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     app_name: str = "ResumeFit"
     environment: str = "development"
     database_url: str = "sqlite:///./resumefit.db"
+    ai_provider: str = "deepseek"
     ai_base_url: str = "https://api.deepseek.com"
     ai_api_key: str | None = None
     ai_model: str = "deepseek-chat"

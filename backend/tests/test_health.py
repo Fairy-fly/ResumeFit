@@ -6,7 +6,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.ai.client import AIClient, AIResponseError
 from app.core.database import Base, get_db
+from app.core.config import settings
 from app.main import app
 from app.models.user import User
 
@@ -190,3 +192,154 @@ def test_project_rejects_invalid_work_url(client: TestClient) -> None:
     )
 
     assert response.status_code == 422
+
+
+def test_job_descriptions_start_empty(client: TestClient) -> None:
+    response = client.get("/job-descriptions")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_create_and_list_job_description(client: TestClient) -> None:
+    payload = {
+        "company_name": "示例公司",
+        "job_title": "后端开发工程师",
+        "raw_text": "负责 FastAPI 服务开发，熟悉 SQL、缓存和云服务。",
+    }
+
+    create_response = client.post("/job-descriptions", json=payload)
+
+    assert create_response.status_code == 201
+    created = create_response.json()
+    assert created["id"]
+    assert created["user_id"] == 1
+    assert created["company_name"] == payload["company_name"]
+    assert created["job_title"] == payload["job_title"]
+    assert created["raw_text"] == payload["raw_text"]
+    assert created["status"] == "draft"
+    assert created["created_at"]
+    assert created["updated_at"]
+
+    list_response = client.get("/job-descriptions")
+
+    assert list_response.status_code == 200
+    job_descriptions = list_response.json()
+    assert len(job_descriptions) == 1
+    assert job_descriptions[0]["id"] == created["id"]
+
+
+def test_job_description_requires_text_fields(client: TestClient) -> None:
+    valid_payload = {
+        "company_name": "示例公司",
+        "job_title": "后端开发工程师",
+        "raw_text": "负责 FastAPI 服务开发。",
+    }
+
+    for field_name in ["company_name", "job_title", "raw_text"]:
+        response = client.post("/job-descriptions", json={**valid_payload, field_name: "   "})
+        assert response.status_code == 422
+
+
+def test_analyze_job_description_with_mock_ai(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_chat_json(
+        self: AIClient,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.1,
+    ) -> dict[str, object]:
+        assert "不要编造" in system_prompt
+        assert "负责 FastAPI 服务开发" in user_prompt
+        assert temperature == 0.1
+        return {
+            "job_title": "后端开发工程师",
+            "job_type": "后端开发",
+            "required_skills": ["FastAPI", "SQL", "缓存"],
+            "bonus_skills": ["云服务"],
+            "responsibilities": ["负责后端服务开发"],
+            "keywords": ["FastAPI", "SQLite", "API"],
+            "resume_focus_suggestions": ["突出 API 设计与数据库经验"],
+        }
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_chat_json)
+
+    create_response = client.post(
+        "/job-descriptions",
+        json={
+            "company_name": "示例公司",
+            "job_title": "后端开发工程师",
+            "raw_text": "负责 FastAPI 服务开发，熟悉 SQL、缓存和云服务。",
+        },
+    )
+    job_description_id = create_response.json()["id"]
+
+    analyze_response = client.post(f"/job-descriptions/{job_description_id}/analyze")
+
+    assert analyze_response.status_code == 200
+    analysis = analyze_response.json()
+    assert analysis["job_description_id"] == job_description_id
+    assert analysis["job_title"] == "后端开发工程师"
+    assert analysis["job_type"] == "后端开发"
+    assert analysis["required_skills"] == ["FastAPI", "SQL", "缓存"]
+    assert analysis["bonus_skills"] == ["云服务"]
+    assert analysis["responsibilities"] == ["负责后端服务开发"]
+    assert analysis["keywords"] == ["FastAPI", "SQLite", "API"]
+    assert analysis["resume_focus_suggestions"] == ["突出 API 设计与数据库经验"]
+    assert analysis["model_name"] == "deepseek-chat"
+
+    list_response = client.get("/job-descriptions")
+    assert list_response.json()[0]["status"] == "analyzed"
+
+
+def test_analyze_job_description_requires_api_key(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ai_api_key", None)
+    create_response = client.post(
+        "/job-descriptions",
+        json={
+            "company_name": "示例公司",
+            "job_title": "后端开发工程师",
+            "raw_text": "负责 FastAPI 服务开发。",
+        },
+    )
+    job_description_id = create_response.json()["id"]
+
+    response = client.post(f"/job-descriptions/{job_description_id}/analyze")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "AI_API_KEY is not configured."
+
+
+def test_analyze_job_description_handles_invalid_ai_response(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_chat_json(
+        self: AIClient,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.1,
+    ) -> dict[str, object]:
+        raise AIResponseError("AI response was not valid JSON.")
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_chat_json)
+    create_response = client.post(
+        "/job-descriptions",
+        json={
+            "company_name": "示例公司",
+            "job_title": "后端开发工程师",
+            "raw_text": "负责 FastAPI 服务开发。",
+        },
+    )
+    job_description_id = create_response.json()["id"]
+
+    response = client.post(f"/job-descriptions/{job_description_id}/analyze")
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "AI response was not valid JSON."

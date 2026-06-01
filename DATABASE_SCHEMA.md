@@ -116,6 +116,8 @@ JD 结构化分析结果。
 | --- | --- | --- |
 | id | INTEGER PRIMARY KEY | 分析 ID |
 | job_description_id | INTEGER | 关联 job_descriptions.id |
+| job_title | TEXT | AI 提取或输入中的岗位名称 |
+| job_type | TEXT | 岗位类型，例如后端开发、前端开发、数据分析 |
 | role_summary | TEXT | 岗位概述 |
 | responsibilities_json | TEXT | 职责 JSON |
 | required_skills_json | TEXT | 必备技能 JSON |

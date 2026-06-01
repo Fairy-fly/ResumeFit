@@ -8,3 +8,5 @@ class PromptLoader:
     def path_for(self, prompt_name: str) -> Path:
         return self.prompts_dir / prompt_name
 
+    def load(self, prompt_name: str) -> str:
+        return self.path_for(prompt_name).read_text(encoding="utf-8")
