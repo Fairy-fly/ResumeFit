@@ -96,6 +96,12 @@ class ResumeGenerationService:
         )
         return self._to_read_model(resume_version)
 
+    def list_resume_versions(self) -> list[ResumeVersionRead]:
+        return [
+            self._to_read_model(resume_version)
+            for resume_version in self.resume_version_repository.list_by_user(user_id=DEFAULT_USER_ID)
+        ]
+
     def _get_resume_profile(self, resume_profile_id: int) -> ResumeProfile:
         resume_profile = self.resume_profile_repository.get_by_id_for_user(
             resume_profile_id=resume_profile_id,

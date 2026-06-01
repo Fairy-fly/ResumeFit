@@ -24,6 +24,7 @@ prompts/
   jd_analyzer_v1.md
   match_scorer_v1.md
   resume_writer_v1.md
+  truth_checker_v1.md
   match_report.md
   resume_generation.md
   risk_detection.md
@@ -146,6 +147,35 @@ prompts/
 - 不夸大年限。
 - 不生成无法自证的指标。
 - 不把 JD 关键词生硬堆砌进简历。
+
+### truth_checker_v1.md
+
+用途：检测已生成定制简历中的真实性风险。
+
+输入：
+
+- `ResumeVersion`
+- 原始 `ResumeProfile`
+- 本次选择的 `Project[]`
+- `JobDescription`
+- `JobAnalysis`
+- `MatchReport`
+
+输出：
+
+- `overall_risk_level`
+- `risky_statements`
+- `safer_rewrites`
+- `missing_evidence`
+- `interview_risk_points`
+- `summary`
+
+要求：
+
+- 不编造、不补写、不替用户验证外部事实。
+- 检查夸大技能、缺少证据的量化成果、角色夸大、项目规模夸大、不确定内容确定化等问题。
+- `interview_risk_points` 只提示风险点，不生成完整面试追问问题。
+- 必须输出稳定 JSON，便于保存到 `TruthCheckResult`。
 
 ### risk_detection.md
 

@@ -7,6 +7,7 @@ from app.api.routes.job_descriptions import router as job_descriptions_router
 from app.api.routes.projects import router as projects_router
 from app.api.routes.resume_profiles import router as resume_profiles_router
 from app.api.routes.resume_versions import router as resume_versions_router
+from app.api.routes.truth_checks import router as truth_checks_router
 from app.core.config import settings
 from app.core.database import init_db
 
@@ -31,6 +32,7 @@ def create_app() -> FastAPI:
     app.include_router(job_descriptions_router)
     app.include_router(analyses_router)
     app.include_router(resume_versions_router)
+    app.include_router(truth_checks_router)
     return app
 
 

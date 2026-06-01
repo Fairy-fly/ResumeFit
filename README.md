@@ -306,6 +306,53 @@ Invoke-RestMethod http://localhost:8000/resume-versions/generate `
 Remove-Item backend/resumefit.db -ErrorAction SilentlyContinue
 ```
 
+## 真实性风险检测模块测试
+
+### API 测试
+
+启动后端并确认 `.env` 中已配置真实 `AI_API_KEY` 后，先确保已经存在一份已生成的定制简历版本。
+
+查询已生成版本：
+
+```powershell
+Invoke-RestMethod http://localhost:8000/resume-versions
+```
+
+生成真实性风险检测结果：
+
+```powershell
+Invoke-RestMethod http://localhost:8000/truth-check-results `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{"resume_version_id":1}'
+```
+
+查询某个版本的历史检测结果：
+
+```powershell
+Invoke-RestMethod "http://localhost:8000/truth-check-results?resume_version_id=1"
+```
+
+返回结果会包含总体风险等级、风险表达、风险类型、风险原因、证据状态、更稳妥改法、缺失证据、面试追问风险点和总结。`interview_risk_points` 只提示风险点，不生成完整面试追问问题。
+
+### 页面测试
+
+1. 启动后端。
+2. 启动前端。
+3. 确认 `/versions` 中已有至少一个定制简历版本。
+4. 打开 `http://localhost:5173/versions`。
+5. 在“真实性风险检测”区域选择一个简历版本。
+6. 点击“检测真实性风险”。
+7. 确认页面显示风险等级、风险表达、风险原因、证据状态、更稳妥改法和面试追问风险点。
+
+### Demo SQLite 重置
+
+如果你已经在旧结构下启动过后端，SQLite 中可能没有 `truth_check_results` 表。Demo 阶段可以删除本地数据库后重启后端：
+
+```powershell
+Remove-Item backend/resumefit.db -ErrorAction SilentlyContinue
+```
+
 ## MVP 不做什么
 
 MVP 阶段不包含以下能力：

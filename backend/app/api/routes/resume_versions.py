@@ -14,6 +14,12 @@ from app.services.resume_generation_service import (
 router = APIRouter(prefix="/resume-versions", tags=["resume versions"])
 
 
+@router.get("", response_model=list[ResumeVersionRead])
+def list_resume_versions(db: Session = Depends(get_db)) -> list[ResumeVersionRead]:
+    service = ResumeGenerationService(db)
+    return service.list_resume_versions()
+
+
 @router.post("/generate", response_model=ResumeVersionRead, status_code=status.HTTP_201_CREATED)
 def generate_resume_version(
     payload: ResumeVersionGenerate,

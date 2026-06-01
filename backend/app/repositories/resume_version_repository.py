@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.resume_version import ResumeVersion
@@ -40,3 +41,18 @@ class ResumeVersionRepository:
         self.db.commit()
         self.db.refresh(resume_version)
         return resume_version
+
+    def get_by_id_for_user(self, *, resume_version_id: int, user_id: int) -> ResumeVersion | None:
+        statement = select(ResumeVersion).where(
+            ResumeVersion.id == resume_version_id,
+            ResumeVersion.user_id == user_id,
+        )
+        return self.db.scalar(statement)
+
+    def list_by_user(self, *, user_id: int) -> list[ResumeVersion]:
+        statement = (
+            select(ResumeVersion)
+            .where(ResumeVersion.user_id == user_id)
+            .order_by(ResumeVersion.created_at.desc())
+        )
+        return list(self.db.scalars(statement).all())

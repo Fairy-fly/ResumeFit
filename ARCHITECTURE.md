@@ -166,6 +166,7 @@ prompts/
   jd_analyzer_v1.md
   match_scorer_v1.md
   resume_writer_v1.md
+  truth_checker_v1.md
   job_analysis.md
   match_report.md
   resume_generation.md
@@ -221,12 +222,18 @@ prompts/
 
 - 原始资料
 - 生成后的 `ResumeVersion`
+- 本次生成选择的 `Project[]`
+- `JobDescription`
+- `JobAnalysis`
+- `MatchReport`
 
 输出：
 
 - 风险等级
 - 风险项
 - 修改建议
+- 缺失证据
+- 面试追问风险点提示
 
 ### 面试追问预测
 

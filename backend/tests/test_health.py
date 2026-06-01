@@ -10,6 +10,7 @@ from app.ai.client import AIClient, AIResponseError
 from app.core.database import Base, get_db
 from app.core.config import settings
 from app.main import app
+from app.models.resume_version import ResumeVersion
 from app.models.user import User
 
 
@@ -849,3 +850,154 @@ def test_resume_version_requires_project_ids(client: TestClient) -> None:
     )
 
     assert response.status_code == 422
+
+
+def _create_generated_resume_version(client: TestClient, ids: dict[str, int]) -> int:
+    response = client.post(
+        "/resume-versions/generate",
+        json={
+            "resume_profile_id": ids["resume_profile_id"],
+            "project_ids": [ids["project_id"]],
+            "job_description_id": ids["job_description_id"],
+            "match_report_id": ids["match_report_id"],
+        },
+    )
+    assert response.status_code == 201
+    return response.json()["id"]
+
+
+def test_create_truth_check_result_with_mock_ai(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+    resume_version_id = _create_generated_resume_version(client, ids)
+
+    def fake_truth_chat_json(
+        self: AIClient,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.1,
+    ) -> dict[str, object]:
+        assert "Truth Checker v1" in system_prompt
+        assert "ResumeFit Demo" in user_prompt
+        assert "content_markdown" in user_prompt
+        assert temperature == 0.1
+        return {
+            "overall_risk_level": "medium",
+            "risky_statements": [
+                {
+                    "statement": "Built FastAPI APIs and SQLite persistence.",
+                    "risk_level": "medium",
+                    "risk_type": "unsupported_claim",
+                    "reason": "The project supports backend API work, but persistence scope should stay specific.",
+                    "evidence_status": "partially_supported",
+                    "safer_rewrite": "Built FastAPI API endpoints and SQLite-backed demo persistence.",
+                }
+            ],
+            "safer_rewrites": ["Keep the project description tied to the provided demo scope."],
+            "missing_evidence": ["Evidence for production usage or scale was not provided."],
+            "interview_risk_points": ["Be ready to explain which API endpoints and tables were implemented."],
+            "summary": "The resume is mostly grounded but should keep scope conservative.",
+        }
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_truth_chat_json)
+
+    create_response = client.post("/truth-check-results", json={"resume_version_id": resume_version_id})
+
+    assert create_response.status_code == 201
+    result = create_response.json()
+    assert result["user_id"] == 1
+    assert result["resume_version_id"] == resume_version_id
+    assert result["overall_risk_level"] == "medium"
+    assert result["risky_statements"][0]["risk_type"] == "unsupported_claim"
+    assert result["risky_statements"][0]["evidence_status"] == "partially_supported"
+    assert result["safer_rewrites"] == ["Keep the project description tied to the provided demo scope."]
+    assert result["missing_evidence"] == ["Evidence for production usage or scale was not provided."]
+    assert result["interview_risk_points"] == ["Be ready to explain which API endpoints and tables were implemented."]
+    assert result["summary"] == "The resume is mostly grounded but should keep scope conservative."
+    assert result["model_name"] == "deepseek-chat"
+
+    list_versions_response = client.get("/resume-versions")
+    assert list_versions_response.status_code == 200
+    assert list_versions_response.json()[0]["id"] == resume_version_id
+
+    list_truth_checks_response = client.get(f"/truth-check-results?resume_version_id={resume_version_id}")
+    assert list_truth_checks_response.status_code == 200
+    assert list_truth_checks_response.json()[0]["id"] == result["id"]
+
+
+def test_truth_check_returns_not_found_for_missing_resume_version(client: TestClient) -> None:
+    create_response = client.post("/truth-check-results", json={"resume_version_id": 999})
+    list_response = client.get("/truth-check-results?resume_version_id=999")
+
+    assert create_response.status_code == 404
+    assert create_response.json()["detail"] == "Resume version was not found."
+    assert list_response.status_code == 404
+    assert list_response.json()["detail"] == "Resume version was not found."
+
+
+def test_truth_check_requires_match_report_context(client: TestClient) -> None:
+    db_generator = app.dependency_overrides[get_db]()
+    db = next(db_generator)
+    try:
+        resume_version = ResumeVersion(
+            user_id=1,
+            resume_profile_id=1,
+            job_description_id=None,
+            match_report_id=None,
+            title="Manual Resume",
+            version_type="manual",
+            content_markdown="# Manual Resume",
+            generation_notes=None,
+            change_explanations_json="[]",
+            risk_report_json=None,
+            raw_ai_output_json="{}",
+            model_name="test-model",
+        )
+        db.add(resume_version)
+        db.commit()
+        db.refresh(resume_version)
+        resume_version_id = resume_version.id
+    finally:
+        db.close()
+        db_generator.close()
+
+    response = client.post("/truth-check-results", json={"resume_version_id": resume_version_id})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Resume version does not have a match report context."
+
+
+def test_truth_check_requires_api_key(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+    resume_version_id = _create_generated_resume_version(client, ids)
+    monkeypatch.setattr(settings, "ai_api_key", None)
+    monkeypatch.setattr(AIClient, "chat_json", lambda self, **_: self._ensure_configured())
+
+    response = client.post("/truth-check-results", json={"resume_version_id": resume_version_id})
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "AI_API_KEY is not configured."
+
+
+def test_truth_check_handles_invalid_ai_response(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+    resume_version_id = _create_generated_resume_version(client, ids)
+
+    def fake_truth_error(self: AIClient, **_: object) -> dict[str, object]:
+        raise AIResponseError("AI response was not valid JSON.")
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_truth_error)
+
+    response = client.post("/truth-check-results", json={"resume_version_id": resume_version_id})
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "AI response was not valid JSON."

@@ -136,7 +136,8 @@ AI 工作流 API：
 - `POST /job-descriptions/{id}/analyze`
 - `POST /job-descriptions/{id}/match`
 - `POST /job-descriptions/{id}/generate-resume`
-- `POST /resume-versions/{id}/risk-check`
+- `POST /truth-check-results`
+- `GET /truth-check-results?resume_version_id={id}`
 - `POST /resume-versions/{id}/interview-questions`
 - `GET /resume-versions`
 - `GET /resume-versions/{id}`
@@ -194,4 +195,3 @@ AI 工作流 API：
 10. 查看真实性风险提示。
 11. 查看面试追问预测。
 12. 保存版本并导出 Markdown。
-

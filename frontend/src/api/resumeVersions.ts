@@ -1,4 +1,4 @@
-import { apiPost } from "./client";
+import { apiGet, apiPost } from "./client";
 
 export interface ChangeExplanation {
   section: string;
@@ -33,4 +33,8 @@ export interface ResumeVersionRead {
 
 export function generateResumeVersion(payload: ResumeVersionGenerate): Promise<ResumeVersionRead> {
   return apiPost<ResumeVersionGenerate, ResumeVersionRead>("/resume-versions/generate", payload);
+}
+
+export function listResumeVersions(): Promise<ResumeVersionRead[]> {
+  return apiGet<ResumeVersionRead[]>("/resume-versions");
 }

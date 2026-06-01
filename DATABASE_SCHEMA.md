@@ -23,6 +23,7 @@ MVP 使用 SQLite，数据结构应足够简单，同时为后续 PostgreSQL 和
 - `JobAnalysis`
 - `MatchReport`
 - `ResumeVersion`
+- `TruthCheckResult`
 - `InterviewQuestion`
 
 建议关系：
@@ -36,6 +37,7 @@ JobDescription 1..n MatchReport
 ResumeProfile 1..n MatchReport
 ResumeProfile 1..n ResumeVersion
 JobDescription 1..n ResumeVersion
+ResumeVersion 1..n TruthCheckResult
 ResumeVersion 1..n InterviewQuestion
 ```
 
@@ -180,6 +182,25 @@ JD 结构化分析结果。
 | created_at | DATETIME | 创建时间 |
 | updated_at | DATETIME | 更新时间 |
 
+### truth_check_results
+
+保存定制简历版本的真实性风险检测历史结果。
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| id | INTEGER PRIMARY KEY | 检测结果 ID |
+| user_id | INTEGER | 关联 users.id |
+| resume_version_id | INTEGER | 关联 resume_versions.id |
+| overall_risk_level | TEXT | low, medium, high |
+| risky_statements_json | TEXT | 风险表达 JSON |
+| safer_rewrites_json | TEXT | 更稳妥改法 JSON |
+| missing_evidence_json | TEXT | 缺失证据 JSON |
+| interview_risk_points_json | TEXT | 面试追问风险点 JSON，不等同于面试追问模块 |
+| summary | TEXT | 检测总结 |
+| raw_ai_output_json | TEXT | AI 原始输出 |
+| model_name | TEXT | 使用模型 |
+| created_at | DATETIME | 创建时间 |
+
 ### interview_questions
 
 面试追问预测。
@@ -211,6 +232,7 @@ CREATE INDEX idx_match_reports_resume_profile_id ON match_reports(resume_profile
 CREATE INDEX idx_match_reports_job_description_id ON match_reports(job_description_id);
 CREATE INDEX idx_resume_versions_user_id ON resume_versions(user_id);
 CREATE INDEX idx_resume_versions_job_description_id ON resume_versions(job_description_id);
+CREATE INDEX idx_truth_check_results_resume_version_id ON truth_check_results(resume_version_id);
 CREATE INDEX idx_interview_questions_resume_version_id ON interview_questions(resume_version_id);
 ```
 
