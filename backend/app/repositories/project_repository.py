@@ -42,3 +42,10 @@ class ProjectRepository:
             .order_by(Project.created_at.desc())
         )
         return list(self.db.scalars(statement).all())
+
+    def list_by_ids_for_user(self, *, project_ids: list[int], user_id: int) -> list[Project]:
+        statement = select(Project).where(
+            Project.user_id == user_id,
+            Project.id.in_(project_ids),
+        )
+        return list(self.db.scalars(statement).all())

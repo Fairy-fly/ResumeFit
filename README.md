@@ -226,6 +226,45 @@ Invoke-RestMethod http://localhost:8000/job-descriptions
 Remove-Item backend/resumefit.db -ErrorAction SilentlyContinue
 ```
 
+## 简历与岗位匹配度报告模块测试
+
+### API 测试
+
+启动后端并确认 `.env` 中已配置真实 `AI_API_KEY` 后，先确保已经存在：
+
+- 至少一份通用简历。
+- 至少一个项目。
+- 一个已完成分析的 JD。
+
+生成匹配报告：
+
+```powershell
+Invoke-RestMethod http://localhost:8000/match-reports `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{"resume_profile_id":1,"project_ids":[1],"job_description_id":1}'
+```
+
+返回结果会包含匹配分数、优势、不足、缺失关键词、修改建议和真实性提醒。测试或演示时如果 JD 还没有分析，接口会提示先完成 JD 分析。
+
+### 页面测试
+
+1. 启动后端。
+2. 启动前端。
+3. 确认 `/resume` 中已有简历，`/projects` 中已有项目，`/jobs` 中已有已分析 JD。
+4. 打开 `http://localhost:5173/analysis`。
+5. 选择一份简历、一个或多个项目、一个已分析 JD。
+6. 点击“生成匹配报告”。
+7. 确认页面显示匹配分数、优势、不足、缺失关键词、修改建议和真实性提醒。
+
+### Demo SQLite 重置
+
+如果你已经在旧结构下创建过 `match_reports` 表，Demo 阶段可以删除本地数据库后重启后端：
+
+```powershell
+Remove-Item backend/resumefit.db -ErrorAction SilentlyContinue
+```
+
 ## MVP 不做什么
 
 MVP 阶段不包含以下能力：

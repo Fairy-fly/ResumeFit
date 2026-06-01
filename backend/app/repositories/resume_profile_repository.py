@@ -27,3 +27,10 @@ class ResumeProfileRepository:
             .order_by(ResumeProfile.created_at.desc())
         )
         return list(self.db.scalars(statement).all())
+
+    def get_by_id_for_user(self, *, resume_profile_id: int, user_id: int) -> ResumeProfile | None:
+        statement = select(ResumeProfile).where(
+            ResumeProfile.id == resume_profile_id,
+            ResumeProfile.user_id == user_id,
+        )
+        return self.db.scalar(statement)

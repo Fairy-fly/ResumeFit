@@ -45,3 +45,7 @@ class JobAnalysisRepository:
     def get_by_job_description_id(self, *, job_description_id: int) -> JobAnalysis | None:
         statement = select(JobAnalysis).where(JobAnalysis.job_description_id == job_description_id)
         return self.db.scalar(statement)
+
+    def get_by_id(self, *, job_analysis_id: int) -> JobAnalysis | None:
+        statement = select(JobAnalysis).where(JobAnalysis.id == job_analysis_id)
+        return self.db.scalar(statement)

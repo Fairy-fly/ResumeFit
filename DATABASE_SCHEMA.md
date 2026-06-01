@@ -142,14 +142,17 @@ JD 结构化分析结果。
 | resume_profile_id | INTEGER | 关联 resume_profiles.id |
 | job_description_id | INTEGER | 关联 job_descriptions.id |
 | job_analysis_id | INTEGER | 关联 job_analyses.id |
+| project_ids_json | TEXT | 本次用于匹配的项目 ID JSON |
 | overall_score | INTEGER | 0 到 100 |
-| skill_score | INTEGER | 技能匹配分 |
-| project_score | INTEGER | 项目匹配分 |
-| domain_score | INTEGER | 领域匹配分 |
-| expression_score | INTEGER | 表达匹配分 |
+| skill_score | INTEGER | 技能匹配分，MVP v1 可为空 |
+| project_score | INTEGER | 项目匹配分，MVP v1 可为空 |
+| domain_score | INTEGER | 领域匹配分，MVP v1 可为空 |
+| expression_score | INTEGER | 表达匹配分，MVP v1 可为空 |
 | strengths_json | TEXT | 优势 JSON |
 | gaps_json | TEXT | 短板 JSON |
+| missing_keywords_json | TEXT | 缺失关键词 JSON |
 | suggestions_json | TEXT | 优化建议 JSON |
+| truthfulness_warnings_json | TEXT | 真实性提醒 JSON |
 | raw_ai_output_json | TEXT | AI 原始输出 |
 | model_name | TEXT | 使用模型 |
 | created_at | DATETIME | 创建时间 |

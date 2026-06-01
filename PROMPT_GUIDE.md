@@ -22,6 +22,7 @@ Prompt 必须服务以下原则：
 prompts/
   job_analysis.md
   jd_analyzer_v1.md
+  match_scorer_v1.md
   match_report.md
   resume_generation.md
   risk_detection.md
@@ -74,7 +75,7 @@ prompts/
 
 必须输出 JSON，便于存入 `JobAnalysis`。不得补写 JD 中没有出现的信息；信息不足时使用空数组或“信息不足”。
 
-### match_report.md
+### match_scorer_v1.md
 
 用途：评估用户简历与 JD 的匹配度。
 
@@ -88,13 +89,13 @@ prompts/
 输出：
 
 - 总分
-- 分项评分
 - 匹配优势
 - 能力缺口
-- 项目匹配说明
+- 缺失关键词
 - 简历优化建议
+- 真实性提醒
 
-评分必须说明依据，不能声称代表真实招聘结果。
+评分必须基于用户已提供材料，不能声称代表真实招聘结果，不能把缺失技能写成用户已经掌握。
 
 ### resume_generation.md
 

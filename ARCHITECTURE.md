@@ -164,6 +164,7 @@ AI_TIMEOUT_SECONDS=60
 ```text
 prompts/
   jd_analyzer_v1.md
+  match_scorer_v1.md
   job_analysis.md
   match_report.md
   resume_generation.md

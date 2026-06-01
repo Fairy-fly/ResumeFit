@@ -343,3 +343,289 @@ def test_analyze_job_description_handles_invalid_ai_response(
 
     assert response.status_code == 502
     assert response.json()["detail"] == "AI response was not valid JSON."
+
+
+def test_create_match_report_with_mock_ai(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_chat_json(
+        self: AIClient,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.1,
+    ) -> dict[str, object]:
+        if "Match Scorer v1" in system_prompt:
+            assert "后端开发通用简历" in user_prompt
+            assert "ResumeFit Demo" in user_prompt
+            assert "后端开发工程师" in user_prompt
+            return {
+                "score": 82,
+                "strengths": ["简历和项目都体现了 FastAPI 服务开发经验"],
+                "weaknesses": ["缓存和云服务经验表达不足"],
+                "missing_keywords": ["缓存", "云服务"],
+                "recommended_changes": ["基于真实经历补充 API 设计和数据库优化描述"],
+                "truthfulness_warnings": ["不要把未提供的云服务经验写成已掌握"],
+            }
+
+        return {
+            "job_title": "后端开发工程师",
+            "job_type": "后端开发",
+            "required_skills": ["FastAPI", "SQL"],
+            "bonus_skills": ["缓存", "云服务"],
+            "responsibilities": ["负责后端服务开发"],
+            "keywords": ["FastAPI", "SQL", "缓存", "云服务"],
+            "resume_focus_suggestions": ["突出后端 API 和数据库经验"],
+        }
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_chat_json)
+
+    resume_response = client.post(
+        "/resume-profiles",
+        json={"title": "后端开发通用简历", "raw_markdown": "# 我的简历\n熟悉 FastAPI 和 SQL。"},
+    )
+    project_response = client.post(
+        "/projects",
+        json={
+            "name": "ResumeFit Demo",
+            "project_type": "Web 应用",
+            "role": "独立开发",
+            "tech_stack": ["FastAPI", "SQLite"],
+            "description": "智能简历定制平台 Demo",
+            "user_contribution": "负责后端 API 和数据库设计",
+            "work_url": "https://example.com",
+        },
+    )
+    job_response = client.post(
+        "/job-descriptions",
+        json={
+            "company_name": "示例公司",
+            "job_title": "后端开发工程师",
+            "raw_text": "负责 FastAPI 服务开发，熟悉 SQL、缓存和云服务。",
+        },
+    )
+    job_description_id = job_response.json()["id"]
+    analyze_response = client.post(f"/job-descriptions/{job_description_id}/analyze")
+    assert analyze_response.status_code == 200
+
+    match_response = client.post(
+        "/match-reports",
+        json={
+            "resume_profile_id": resume_response.json()["id"],
+            "project_ids": [project_response.json()["id"]],
+            "job_description_id": job_description_id,
+        },
+    )
+
+    assert match_response.status_code == 201
+    report = match_response.json()
+    assert report["user_id"] == 1
+    assert report["resume_profile_id"] == resume_response.json()["id"]
+    assert report["project_ids"] == [project_response.json()["id"]]
+    assert report["job_description_id"] == job_description_id
+    assert report["job_analysis_id"] == analyze_response.json()["id"]
+    assert report["score"] == 82
+    assert report["strengths"] == ["简历和项目都体现了 FastAPI 服务开发经验"]
+    assert report["weaknesses"] == ["缓存和云服务经验表达不足"]
+    assert report["missing_keywords"] == ["缓存", "云服务"]
+    assert report["recommended_changes"] == ["基于真实经历补充 API 设计和数据库优化描述"]
+    assert report["truthfulness_warnings"] == ["不要把未提供的云服务经验写成已掌握"]
+    assert report["model_name"] == "deepseek-chat"
+
+
+def test_match_report_requires_project_ids(client: TestClient) -> None:
+    response = client.post(
+        "/match-reports",
+        json={"resume_profile_id": 1, "project_ids": [], "job_description_id": 1},
+    )
+
+    assert response.status_code == 422
+
+
+def test_match_report_requires_analyzed_job_description(client: TestClient) -> None:
+    resume_response = client.post(
+        "/resume-profiles",
+        json={"title": "后端开发通用简历", "raw_markdown": "# 我的简历"},
+    )
+    project_response = client.post(
+        "/projects",
+        json={
+            "name": "ResumeFit Demo",
+            "project_type": "Web 应用",
+            "role": "独立开发",
+            "tech_stack": ["FastAPI"],
+            "description": "智能简历定制平台 Demo",
+            "user_contribution": "负责后端 API",
+        },
+    )
+    job_response = client.post(
+        "/job-descriptions",
+        json={
+            "company_name": "示例公司",
+            "job_title": "后端开发工程师",
+            "raw_text": "负责 FastAPI 服务开发。",
+        },
+    )
+
+    response = client.post(
+        "/match-reports",
+        json={
+            "resume_profile_id": resume_response.json()["id"],
+            "project_ids": [project_response.json()["id"]],
+            "job_description_id": job_response.json()["id"],
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Job description has not been analyzed yet."
+
+
+def test_match_report_returns_not_found_for_missing_inputs(client: TestClient) -> None:
+    missing_resume_response = client.post(
+        "/match-reports",
+        json={"resume_profile_id": 999, "project_ids": [1], "job_description_id": 1},
+    )
+    assert missing_resume_response.status_code == 404
+    assert missing_resume_response.json()["detail"] == "Resume profile was not found."
+
+    resume_response = client.post(
+        "/resume-profiles",
+        json={"title": "后端开发通用简历", "raw_markdown": "# 我的简历"},
+    )
+    missing_project_response = client.post(
+        "/match-reports",
+        json={"resume_profile_id": resume_response.json()["id"], "project_ids": [999], "job_description_id": 1},
+    )
+    assert missing_project_response.status_code == 404
+    assert missing_project_response.json()["detail"] == "One or more projects were not found."
+
+
+def test_match_report_requires_api_key(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_job_analysis_chat_json(
+        self: AIClient,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.1,
+    ) -> dict[str, object]:
+        return {
+            "job_title": "后端开发工程师",
+            "job_type": "后端开发",
+            "required_skills": ["FastAPI"],
+            "bonus_skills": [],
+            "responsibilities": ["负责后端服务开发"],
+            "keywords": ["FastAPI"],
+            "resume_focus_suggestions": ["突出后端 API 经验"],
+        }
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_job_analysis_chat_json)
+    resume_response = client.post(
+        "/resume-profiles",
+        json={"title": "后端开发通用简历", "raw_markdown": "# 我的简历"},
+    )
+    project_response = client.post(
+        "/projects",
+        json={
+            "name": "ResumeFit Demo",
+            "project_type": "Web 应用",
+            "role": "独立开发",
+            "tech_stack": ["FastAPI"],
+            "description": "智能简历定制平台 Demo",
+            "user_contribution": "负责后端 API",
+        },
+    )
+    job_response = client.post(
+        "/job-descriptions",
+        json={
+            "company_name": "示例公司",
+            "job_title": "后端开发工程师",
+            "raw_text": "负责 FastAPI 服务开发。",
+        },
+    )
+    job_description_id = job_response.json()["id"]
+    assert client.post(f"/job-descriptions/{job_description_id}/analyze").status_code == 200
+
+    monkeypatch.setattr(settings, "ai_api_key", None)
+    monkeypatch.setattr(
+        AIClient,
+        "chat_json",
+        lambda self, **_: self._ensure_configured(),
+    )
+    response = client.post(
+        "/match-reports",
+        json={
+            "resume_profile_id": resume_response.json()["id"],
+            "project_ids": [project_response.json()["id"]],
+            "job_description_id": job_description_id,
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "AI_API_KEY is not configured."
+
+
+def test_match_report_handles_invalid_ai_response(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_chat_json(
+        self: AIClient,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.1,
+    ) -> dict[str, object]:
+        if "Match Scorer v1" in system_prompt:
+            raise AIResponseError("AI response was not valid JSON.")
+        return {
+            "job_title": "后端开发工程师",
+            "job_type": "后端开发",
+            "required_skills": ["FastAPI"],
+            "bonus_skills": [],
+            "responsibilities": ["负责后端服务开发"],
+            "keywords": ["FastAPI"],
+            "resume_focus_suggestions": ["突出后端 API 经验"],
+        }
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_chat_json)
+    resume_response = client.post(
+        "/resume-profiles",
+        json={"title": "后端开发通用简历", "raw_markdown": "# 我的简历"},
+    )
+    project_response = client.post(
+        "/projects",
+        json={
+            "name": "ResumeFit Demo",
+            "project_type": "Web 应用",
+            "role": "独立开发",
+            "tech_stack": ["FastAPI"],
+            "description": "智能简历定制平台 Demo",
+            "user_contribution": "负责后端 API",
+        },
+    )
+    job_response = client.post(
+        "/job-descriptions",
+        json={
+            "company_name": "示例公司",
+            "job_title": "后端开发工程师",
+            "raw_text": "负责 FastAPI 服务开发。",
+        },
+    )
+    job_description_id = job_response.json()["id"]
+    assert client.post(f"/job-descriptions/{job_description_id}/analyze").status_code == 200
+
+    response = client.post(
+        "/match-reports",
+        json={
+            "resume_profile_id": resume_response.json()["id"],
+            "project_ids": [project_response.json()["id"]],
+            "job_description_id": job_description_id,
+        },
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "AI response was not valid JSON."
