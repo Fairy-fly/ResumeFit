@@ -1001,3 +1001,156 @@ def test_truth_check_handles_invalid_ai_response(
 
     assert response.status_code == 502
     assert response.json()["detail"] == "AI response was not valid JSON."
+
+
+def test_create_interview_question_result_with_mock_ai(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+    resume_version_id = _create_generated_resume_version(client, ids)
+
+    def fake_truth_chat_json(self: AIClient, **_: object) -> dict[str, object]:
+        return {
+            "overall_risk_level": "medium",
+            "risky_statements": [
+                {
+                    "statement": "Built FastAPI APIs and SQLite persistence.",
+                    "risk_level": "medium",
+                    "risk_type": "unsupported_claim",
+                    "reason": "The scope should stay tied to the demo evidence.",
+                    "evidence_status": "partially_supported",
+                    "safer_rewrite": "Built FastAPI API endpoints and SQLite-backed demo persistence.",
+                }
+            ],
+            "safer_rewrites": ["Keep answers tied to the provided demo scope."],
+            "missing_evidence": ["No production usage evidence was provided."],
+            "interview_risk_points": ["Be ready to explain which API endpoints and tables were implemented."],
+            "summary": "Use conservative wording in interview answers.",
+        }
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_truth_chat_json)
+    truth_response = client.post("/truth-check-results", json={"resume_version_id": resume_version_id})
+    assert truth_response.status_code == 201
+
+    def fake_interview_chat_json(
+        self: AIClient,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.2,
+    ) -> dict[str, object]:
+        assert "Interview Question Predictor v1" in system_prompt
+        assert "ResumeFit Demo" in user_prompt
+        assert "truth_check_result" in user_prompt
+        assert "Be ready to explain which API endpoints and tables were implemented." in user_prompt
+        assert temperature == 0.2
+        return {
+            "questions": [
+                {
+                    "question": "Can you walk me through the FastAPI endpoints you built?",
+                    "reason": "The tailored resume emphasizes FastAPI API work and the JD asks for backend service development.",
+                    "related_resume_section": "ResumeFit Demo project",
+                    "difficulty": "medium",
+                    "suggested_answer": "I can describe the demo API endpoints I implemented and how they connect to SQLite persistence.",
+                    "answer_strategy": "Start with the project context, explain personal contribution, then keep scope limited to the demo.",
+                    "risk_reminder": "Do not imply production scale or cloud ownership unless more evidence is provided.",
+                }
+            ],
+            "summary": "Focus interview preparation on backend API details and conservative project scope.",
+        }
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_interview_chat_json)
+
+    create_response = client.post("/interview-question-results", json={"resume_version_id": resume_version_id})
+
+    assert create_response.status_code == 201
+    result = create_response.json()
+    assert result["user_id"] == 1
+    assert result["resume_version_id"] == resume_version_id
+    assert result["questions"][0]["difficulty"] == "medium"
+    assert result["questions"][0]["related_resume_section"] == "ResumeFit Demo project"
+    assert result["questions"][0]["risk_reminder"] == (
+        "Do not imply production scale or cloud ownership unless more evidence is provided."
+    )
+    assert result["summary"] == "Focus interview preparation on backend API details and conservative project scope."
+    assert result["model_name"] == "deepseek-chat"
+
+    list_response = client.get(f"/interview-question-results?resume_version_id={resume_version_id}")
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["id"] == result["id"]
+
+
+def test_interview_question_returns_not_found_for_missing_resume_version(client: TestClient) -> None:
+    create_response = client.post("/interview-question-results", json={"resume_version_id": 999})
+    list_response = client.get("/interview-question-results?resume_version_id=999")
+
+    assert create_response.status_code == 404
+    assert create_response.json()["detail"] == "Resume version was not found."
+    assert list_response.status_code == 404
+    assert list_response.json()["detail"] == "Resume version was not found."
+
+
+def test_interview_question_requires_match_report_context(client: TestClient) -> None:
+    db_generator = app.dependency_overrides[get_db]()
+    db = next(db_generator)
+    try:
+        resume_version = ResumeVersion(
+            user_id=1,
+            resume_profile_id=1,
+            job_description_id=None,
+            match_report_id=None,
+            title="Manual Resume",
+            version_type="manual",
+            content_markdown="# Manual Resume",
+            generation_notes=None,
+            change_explanations_json="[]",
+            risk_report_json=None,
+            raw_ai_output_json="{}",
+            model_name="test-model",
+        )
+        db.add(resume_version)
+        db.commit()
+        db.refresh(resume_version)
+        resume_version_id = resume_version.id
+    finally:
+        db.close()
+        db_generator.close()
+
+    response = client.post("/interview-question-results", json={"resume_version_id": resume_version_id})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Resume version does not have a match report context."
+
+
+def test_interview_question_requires_api_key(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+    resume_version_id = _create_generated_resume_version(client, ids)
+    monkeypatch.setattr(settings, "ai_api_key", None)
+    monkeypatch.setattr(AIClient, "chat_json", lambda self, **_: self._ensure_configured())
+
+    response = client.post("/interview-question-results", json={"resume_version_id": resume_version_id})
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "AI_API_KEY is not configured."
+
+
+def test_interview_question_handles_invalid_ai_response(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+    resume_version_id = _create_generated_resume_version(client, ids)
+
+    def fake_interview_error(self: AIClient, **_: object) -> dict[str, object]:
+        raise AIResponseError("AI response was not valid JSON.")
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_interview_error)
+
+    response = client.post("/interview-question-results", json={"resume_version_id": resume_version_id})
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "AI response was not valid JSON."

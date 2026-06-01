@@ -24,7 +24,7 @@ MVP 使用 SQLite，数据结构应足够简单，同时为后续 PostgreSQL 和
 - `MatchReport`
 - `ResumeVersion`
 - `TruthCheckResult`
-- `InterviewQuestion`
+- `InterviewQuestionResult`
 
 建议关系：
 
@@ -38,7 +38,7 @@ ResumeProfile 1..n MatchReport
 ResumeProfile 1..n ResumeVersion
 JobDescription 1..n ResumeVersion
 ResumeVersion 1..n TruthCheckResult
-ResumeVersion 1..n InterviewQuestion
+ResumeVersion 1..n InterviewQuestionResult
 ```
 
 ## 3. 表结构建议
@@ -201,23 +201,20 @@ JD 结构化分析结果。
 | model_name | TEXT | 使用模型 |
 | created_at | DATETIME | 创建时间 |
 
-### interview_questions
+### interview_question_results
 
-面试追问预测。
+保存定制简历版本的面试追问预测历史结果。
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| id | INTEGER PRIMARY KEY | 问题 ID |
+| id | INTEGER PRIMARY KEY | 预测结果 ID |
 | user_id | INTEGER | 关联 users.id |
 | resume_version_id | INTEGER | 关联 resume_versions.id |
-| job_description_id | INTEGER | 关联 job_descriptions.id |
-| category | TEXT | project, technical, business, metric, behavior |
-| question | TEXT | 问题内容 |
-| reason | TEXT | 为什么会被问 |
-| preparation_tip | TEXT | 准备建议 |
-| difficulty | TEXT | easy, medium, hard |
+| questions_json | TEXT | 面试追问列表 JSON |
+| summary | TEXT | 本次预测总结 |
+| raw_ai_output_json | TEXT | AI 原始输出 |
+| model_name | TEXT | 使用模型 |
 | created_at | DATETIME | 创建时间 |
-| updated_at | DATETIME | 更新时间 |
 
 ## 4. 索引建议
 
@@ -233,7 +230,7 @@ CREATE INDEX idx_match_reports_job_description_id ON match_reports(job_descripti
 CREATE INDEX idx_resume_versions_user_id ON resume_versions(user_id);
 CREATE INDEX idx_resume_versions_job_description_id ON resume_versions(job_description_id);
 CREATE INDEX idx_truth_check_results_resume_version_id ON truth_check_results(resume_version_id);
-CREATE INDEX idx_interview_questions_resume_version_id ON interview_questions(resume_version_id);
+CREATE INDEX idx_interview_question_results_resume_version_id ON interview_question_results(resume_version_id);
 ```
 
 ## 5. JSON 字段说明

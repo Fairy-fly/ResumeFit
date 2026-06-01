@@ -25,6 +25,7 @@ prompts/
   match_scorer_v1.md
   resume_writer_v1.md
   truth_checker_v1.md
+  interview_question_v1.md
   match_report.md
   resume_generation.md
   risk_detection.md
@@ -176,6 +177,43 @@ prompts/
 - 检查夸大技能、缺少证据的量化成果、角色夸大、项目规模夸大、不确定内容确定化等问题。
 - `interview_risk_points` 只提示风险点，不生成完整面试追问问题。
 - 必须输出稳定 JSON，便于保存到 `TruthCheckResult`。
+
+### interview_question_v1.md
+
+用途：基于定制简历、岗位 JD、项目经历、匹配报告和可选真实性风险检测结果，预测面试官可能追问的问题。
+
+输入：
+
+- `ResumeVersion`
+- 原始 `ResumeProfile`
+- 本次选择的 `Project[]`
+- `JobDescription`
+- `JobAnalysis`
+- `MatchReport`
+- 最新 `TruthCheckResult`，如果存在
+
+输出：
+
+- `questions`
+- `summary`
+
+`questions` 每项包含：
+
+- `question`
+- `reason`
+- `related_resume_section`
+- `difficulty`
+- `suggested_answer`
+- `answer_strategy`
+- `risk_reminder`
+
+要求：
+
+- 只能基于用户已提供资料预测追问。
+- 不根据虚构经历生成问题。
+- 建议回答必须保守、真实、可解释。
+- 证据不足时必须提醒用户谨慎表达。
+- 必须输出稳定 JSON，便于保存到 `InterviewQuestionResult`。
 
 ### risk_detection.md
 

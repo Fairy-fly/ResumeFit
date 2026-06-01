@@ -2,6 +2,12 @@
 import { computed, onMounted, ref } from "vue";
 
 import { listMatchReports, type MatchReportRead } from "../api/analyses";
+import {
+  createInterviewQuestionResult,
+  listInterviewQuestionResults,
+  type InterviewQuestionResultRead,
+  type QuestionDifficulty
+} from "../api/interviewQuestions";
 import { listJobDescriptions, type JobDescriptionRead } from "../api/jobDescriptions";
 import { listProjects, type ProjectRead } from "../api/projects";
 import { listResumeProfiles, type ResumeProfileRead } from "../api/resumeProfiles";
@@ -24,17 +30,22 @@ const selectedResumeId = ref<number | null>(null);
 const selectedProjectIds = ref<number[]>([]);
 const selectedJobDescriptionId = ref<number | null>(null);
 const selectedMatchReportId = ref<number | null>(null);
-const selectedTruthResumeVersionId = ref<number | null>(null);
+const selectedResumeVersionId = ref<number | null>(null);
 const resumeVersion = ref<ResumeVersionRead | null>(null);
 const truthCheck = ref<TruthCheckResultRead | null>(null);
 const truthChecks = ref<TruthCheckResultRead[]>([]);
+const interviewQuestionResult = ref<InterviewQuestionResultRead | null>(null);
+const interviewQuestionResults = ref<InterviewQuestionResultRead[]>([]);
 const isLoading = ref(false);
 const isLoadingVersions = ref(false);
 const isLoadingTruthChecks = ref(false);
+const isLoadingInterviewQuestions = ref(false);
 const isGenerating = ref(false);
 const isCheckingTruth = ref(false);
+const isGeneratingInterviewQuestions = ref(false);
 const errorMessage = ref("");
 const truthErrorMessage = ref("");
+const interviewErrorMessage = ref("");
 const copyMessage = ref("");
 
 const riskLevelLabels: Record<RiskLevel, string> = {
@@ -61,6 +72,12 @@ const evidenceStatusLabels: Record<EvidenceStatus, string> = {
   uncertain: "不确定"
 };
 
+const difficultyLabels: Record<QuestionDifficulty, string> = {
+  easy: "基础",
+  medium: "中等",
+  hard: "较难"
+};
+
 const analyzedJobDescriptions = computed(() =>
   jobDescriptions.value.filter((jobDescription) => jobDescription.status === "analyzed")
 );
@@ -69,8 +86,8 @@ const selectedMatchReport = computed(() =>
   matchReports.value.find((matchReport) => matchReport.id === selectedMatchReportId.value) ?? null
 );
 
-const selectedTruthResumeVersion = computed(() =>
-  resumeVersions.value.find((version) => version.id === selectedTruthResumeVersionId.value) ?? null
+const selectedResumeVersion = computed(() =>
+  resumeVersions.value.find((version) => version.id === selectedResumeVersionId.value) ?? null
 );
 
 const canGenerate = computed(
@@ -81,7 +98,9 @@ const canGenerate = computed(
     selectedMatchReportId.value !== null
 );
 
-const canCheckTruth = computed(() => selectedTruthResumeVersionId.value !== null);
+const canCheckTruth = computed(() => selectedResumeVersionId.value !== null);
+
+const canGenerateInterviewQuestions = computed(() => selectedResumeVersionId.value !== null);
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("zh-CN", {
@@ -156,24 +175,43 @@ async function loadTruthChecksForVersion(resumeVersionId: number): Promise<void>
   }
 }
 
+async function loadInterviewQuestionsForVersion(resumeVersionId: number): Promise<void> {
+  isLoadingInterviewQuestions.value = true;
+  interviewErrorMessage.value = "";
+
+  try {
+    interviewQuestionResults.value = await listInterviewQuestionResults(resumeVersionId);
+    interviewQuestionResult.value = interviewQuestionResults.value[0] ?? null;
+  } catch (error) {
+    interviewQuestionResults.value = [];
+    interviewQuestionResult.value = null;
+    interviewErrorMessage.value = messageFromError(error);
+  } finally {
+    isLoadingInterviewQuestions.value = false;
+  }
+}
+
 async function refreshResumeVersions(preferredResumeVersionId?: number): Promise<void> {
   isLoadingVersions.value = true;
   truthErrorMessage.value = "";
+  interviewErrorMessage.value = "";
 
   try {
     resumeVersions.value = await listResumeVersions();
-    const preferredId = preferredResumeVersionId ?? selectedTruthResumeVersionId.value;
+    const preferredId = preferredResumeVersionId ?? selectedResumeVersionId.value;
     const nextId =
       resumeVersions.value.find((version) => version.id === preferredId)?.id ?? resumeVersions.value[0]?.id ?? null;
-    selectedTruthResumeVersionId.value = nextId;
+    selectedResumeVersionId.value = nextId;
 
     if (nextId !== null) {
-      await loadTruthChecksForVersion(nextId);
+      await Promise.all([loadTruthChecksForVersion(nextId), loadInterviewQuestionsForVersion(nextId)]);
       return;
     }
 
     truthChecks.value = [];
     truthCheck.value = null;
+    interviewQuestionResults.value = [];
+    interviewQuestionResult.value = null;
   } catch (error) {
     truthErrorMessage.value = messageFromError(error);
   } finally {
@@ -185,6 +223,7 @@ async function loadOptions(): Promise<void> {
   isLoading.value = true;
   errorMessage.value = "";
   truthErrorMessage.value = "";
+  interviewErrorMessage.value = "";
   copyMessage.value = "";
 
   try {
@@ -210,9 +249,12 @@ async function loadOptions(): Promise<void> {
         loadedJobDescriptions.find((jobDescription) => jobDescription.status === "analyzed")?.id ?? null;
     }
 
-    selectedTruthResumeVersionId.value = loadedResumeVersions[0]?.id ?? null;
-    if (selectedTruthResumeVersionId.value !== null) {
-      await loadTruthChecksForVersion(selectedTruthResumeVersionId.value);
+    selectedResumeVersionId.value = loadedResumeVersions[0]?.id ?? null;
+    if (selectedResumeVersionId.value !== null) {
+      await Promise.all([
+        loadTruthChecksForVersion(selectedResumeVersionId.value),
+        loadInterviewQuestionsForVersion(selectedResumeVersionId.value)
+      ]);
     }
   } catch (error) {
     errorMessage.value = messageFromError(error);
@@ -262,7 +304,7 @@ async function handleGenerate(): Promise<void> {
 }
 
 async function handleTruthCheck(): Promise<void> {
-  if (!canCheckTruth.value || isCheckingTruth.value || selectedTruthResumeVersionId.value === null) {
+  if (!canCheckTruth.value || isCheckingTruth.value || selectedResumeVersionId.value === null) {
     return;
   }
 
@@ -271,7 +313,7 @@ async function handleTruthCheck(): Promise<void> {
 
   try {
     const created = await createTruthCheckResult({
-      resume_version_id: selectedTruthResumeVersionId.value
+      resume_version_id: selectedResumeVersionId.value
     });
     truthCheck.value = created;
     truthChecks.value = [created, ...truthChecks.value.filter((item) => item.id !== created.id)];
@@ -282,9 +324,37 @@ async function handleTruthCheck(): Promise<void> {
   }
 }
 
-function handleSelectTruthVersion(resumeVersionId: number): void {
-  selectedTruthResumeVersionId.value = resumeVersionId;
-  void loadTruthChecksForVersion(resumeVersionId);
+async function handleInterviewQuestions(): Promise<void> {
+  if (
+    !canGenerateInterviewQuestions.value ||
+    isGeneratingInterviewQuestions.value ||
+    selectedResumeVersionId.value === null
+  ) {
+    return;
+  }
+
+  isGeneratingInterviewQuestions.value = true;
+  interviewErrorMessage.value = "";
+
+  try {
+    const created = await createInterviewQuestionResult({
+      resume_version_id: selectedResumeVersionId.value
+    });
+    interviewQuestionResult.value = created;
+    interviewQuestionResults.value = [
+      created,
+      ...interviewQuestionResults.value.filter((item) => item.id !== created.id)
+    ];
+  } catch (error) {
+    interviewErrorMessage.value = messageFromError(error);
+  } finally {
+    isGeneratingInterviewQuestions.value = false;
+  }
+}
+
+function handleSelectResumeVersion(resumeVersionId: number): void {
+  selectedResumeVersionId.value = resumeVersionId;
+  void Promise.all([loadTruthChecksForVersion(resumeVersionId), loadInterviewQuestionsForVersion(resumeVersionId)]);
 }
 
 function handleRefreshVersions(): void {
@@ -459,9 +529,9 @@ onMounted(() => {
         <label v-for="version in resumeVersions" :key="version.id" class="option-item">
           <input
             type="radio"
-            name="truth-resume-version"
-            :checked="selectedTruthResumeVersionId === version.id"
-            @change="handleSelectTruthVersion(version.id)"
+            name="resume-version"
+            :checked="selectedResumeVersionId === version.id"
+            @change="handleSelectResumeVersion(version.id)"
           />
           <span>
             <strong>{{ version.title }}</strong>
@@ -470,15 +540,15 @@ onMounted(() => {
         </label>
       </section>
 
-      <div v-if="selectedTruthResumeVersion" class="summary-section">
+      <div v-if="selectedResumeVersion" class="summary-section">
         <dl>
           <div>
             <dt>当前检测版本</dt>
-            <dd>{{ selectedTruthResumeVersion.title }}</dd>
+            <dd>{{ selectedResumeVersion.title }}</dd>
           </div>
           <div>
             <dt>关联岗位</dt>
-            <dd>{{ findJobTitle(selectedTruthResumeVersion.job_description_id) }}</dd>
+            <dd>{{ findJobTitle(selectedResumeVersion.job_description_id) }}</dd>
           </div>
           <div>
             <dt>历史检测</dt>
@@ -554,6 +624,96 @@ onMounted(() => {
         </div>
       </article>
     </section>
+
+    <section class="interview-section" aria-labelledby="interview-question-title">
+      <div class="section-header">
+        <div>
+          <h2 id="interview-question-title">面试追问预测</h2>
+          <p class="muted-text">基于当前选择的简历版本、JD、项目和真实性风险，生成保守可解释的追问准备。</p>
+        </div>
+      </div>
+
+      <div v-if="selectedResumeVersion" class="summary-section">
+        <dl>
+          <div>
+            <dt>当前预测版本</dt>
+            <dd>{{ selectedResumeVersion.title }}</dd>
+          </div>
+          <div>
+            <dt>关联岗位</dt>
+            <dd>{{ findJobTitle(selectedResumeVersion.job_description_id) }}</dd>
+          </div>
+          <div>
+            <dt>历史预测</dt>
+            <dd>{{ interviewQuestionResults.length }} 次</dd>
+          </div>
+        </dl>
+      </div>
+      <p v-else class="muted-text">请先在上方选择一个已生成的定制简历版本。</p>
+
+      <p v-if="isLoadingInterviewQuestions" class="muted-text">正在加载历史追问预测...</p>
+      <p v-if="interviewErrorMessage" class="error-message">{{ interviewErrorMessage }}</p>
+
+      <button
+        class="primary-button"
+        type="button"
+        :disabled="!canGenerateInterviewQuestions || isGeneratingInterviewQuestions"
+        @click="handleInterviewQuestions"
+      >
+        {{ isGeneratingInterviewQuestions ? "生成中..." : "生成面试追问" }}
+      </button>
+
+      <article v-if="interviewQuestionResult" class="interview-result-panel">
+        <div class="section-header">
+          <div>
+            <h3>追问预测结果</h3>
+            <p class="muted-text">
+              模型：{{ interviewQuestionResult.model_name }} · {{ formatDate(interviewQuestionResult.created_at) }}
+            </p>
+          </div>
+        </div>
+
+        <p class="truth-summary">{{ interviewQuestionResult.summary }}</p>
+
+        <section class="question-list" aria-labelledby="interview-questions-list-title">
+          <h4 id="interview-questions-list-title">可能追问</h4>
+          <p v-if="interviewQuestionResult.questions.length === 0" class="muted-text">暂无追问预测。</p>
+          <article
+            v-for="item in interviewQuestionResult.questions"
+            :key="`${item.question}-${item.related_resume_section}`"
+            class="question-item"
+          >
+            <div class="question-item-header">
+              <strong>{{ item.question }}</strong>
+              <span class="difficulty-badge">{{ difficultyLabels[item.difficulty] }}</span>
+            </div>
+
+            <div class="question-grid">
+              <section class="question-card">
+                <h5>为什么会问</h5>
+                <p>{{ item.reason }}</p>
+              </section>
+              <section class="question-card">
+                <h5>关联简历内容</h5>
+                <p>{{ item.related_resume_section }}</p>
+              </section>
+              <section class="question-card wide">
+                <h5>建议回答</h5>
+                <p>{{ item.suggested_answer }}</p>
+              </section>
+              <section class="question-card">
+                <h5>回答策略</h5>
+                <p>{{ item.answer_strategy }}</p>
+              </section>
+              <section class="question-card">
+                <h5>风险提醒</h5>
+                <p>{{ item.risk_reminder }}</p>
+              </section>
+            </div>
+          </article>
+        </section>
+      </article>
+    </section>
   </section>
 </template>
 
@@ -567,7 +727,8 @@ onMounted(() => {
 .page-header,
 .section-header,
 .truth-result-header,
-.risk-item-header {
+.risk-item-header,
+.question-item-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -580,7 +741,11 @@ onMounted(() => {
 .result-section,
 .truth-section,
 .truth-result-panel,
-.risk-list {
+.interview-section,
+.interview-result-panel,
+.risk-list,
+.question-list,
+.question-item {
   display: grid;
   gap: 16px;
 }
@@ -592,18 +757,24 @@ onMounted(() => {
 .truth-section h2,
 .truth-section h3,
 .truth-section h4,
-.truth-card h4 {
+.truth-card h4,
+.interview-section h2,
+.interview-section h3,
+.interview-section h4,
+.question-card h5 {
   margin: 0;
 }
 
 .selector-section h2,
 .summary-section h2,
-.truth-section h2 {
+.truth-section h2,
+.interview-section h2 {
   font-size: 20px;
 }
 
 .selector-section h3,
-.truth-result-panel h3 {
+.truth-result-panel h3,
+.interview-result-panel h3 {
   font-size: 18px;
 }
 
@@ -635,7 +806,9 @@ onMounted(() => {
 
 .summary-section,
 .truth-section,
+.interview-section,
 .truth-result-panel,
+.interview-result-panel,
 .markdown-panel,
 .explanation-panel {
   border: 1px solid #dedfe3;
@@ -728,7 +901,8 @@ onMounted(() => {
 
 .explanation-title span,
 .risk-tags span,
-.risk-badge {
+.risk-badge,
+.difficulty-badge {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
@@ -745,6 +919,7 @@ onMounted(() => {
 .truth-summary,
 .risk-item p,
 .rewrite-box p,
+.question-card p,
 .explanation-panel p,
 .explanation-panel small {
   margin: 0;
@@ -754,6 +929,7 @@ onMounted(() => {
 .risk-item p,
 .rewrite-box p,
 .truth-card li,
+.question-card p,
 .explanation-panel p,
 .explanation-panel small {
   color: #4d5564;
@@ -788,6 +964,22 @@ onMounted(() => {
   padding: 14px;
 }
 
+.question-item {
+  border: 1px solid #edf0f4;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.question-item-header strong {
+  color: #1d1f24;
+}
+
+.difficulty-badge {
+  background: #eef2ff;
+  color: #243b99;
+  white-space: nowrap;
+}
+
 .risk-tags {
   display: flex;
   flex-wrap: wrap;
@@ -814,12 +1006,30 @@ onMounted(() => {
   gap: 12px;
 }
 
+.question-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .truth-card {
   display: grid;
   gap: 12px;
   border: 1px solid #edf0f4;
   border-radius: 8px;
   padding: 14px;
+}
+
+.question-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #edf0f4;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.question-card.wide {
+  grid-column: 1 / -1;
 }
 
 .truth-card.wide {
@@ -848,7 +1058,8 @@ onMounted(() => {
   .page-header,
   .section-header,
   .truth-result-header,
-  .risk-item-header {
+  .risk-item-header,
+  .question-item-header {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -858,6 +1069,10 @@ onMounted(() => {
   }
 
   .truth-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .question-grid {
     grid-template-columns: 1fr;
   }
 }

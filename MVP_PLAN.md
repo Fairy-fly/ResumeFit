@@ -138,7 +138,8 @@ AI 工作流 API：
 - `POST /job-descriptions/{id}/generate-resume`
 - `POST /truth-check-results`
 - `GET /truth-check-results?resume_version_id={id}`
-- `POST /resume-versions/{id}/interview-questions`
+- `POST /interview-question-results`
+- `GET /interview-question-results?resume_version_id={id}`
 - `GET /resume-versions`
 - `GET /resume-versions/{id}`
 - `GET /resume-versions/{id}/export/markdown`

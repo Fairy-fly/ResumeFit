@@ -353,6 +353,53 @@ Invoke-RestMethod "http://localhost:8000/truth-check-results?resume_version_id=1
 Remove-Item backend/resumefit.db -ErrorAction SilentlyContinue
 ```
 
+## 面试追问预测模块测试
+
+### API 测试
+
+启动后端并确认 `.env` 中已配置真实 `AI_API_KEY` 后，先确保已经存在一份已生成的定制简历版本。真实性风险检测结果不是必须项；如果存在，后端会读取最新一次检测结果作为追问预测上下文。
+
+查询已生成版本：
+
+```powershell
+Invoke-RestMethod http://localhost:8000/resume-versions
+```
+
+生成面试追问预测结果：
+
+```powershell
+Invoke-RestMethod http://localhost:8000/interview-question-results `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{"resume_version_id":1}'
+```
+
+查询某个版本的历史追问预测：
+
+```powershell
+Invoke-RestMethod "http://localhost:8000/interview-question-results?resume_version_id=1"
+```
+
+返回结果会包含面试问题、为什么会问、关联简历内容、难度、建议回答、回答策略、风险提醒和总结。
+
+### 页面测试
+
+1. 启动后端。
+2. 启动前端。
+3. 确认 `/versions` 中已有至少一个定制简历版本。
+4. 打开 `http://localhost:5173/versions`。
+5. 在“真实性风险检测”区域选择一个简历版本。
+6. 在“面试追问预测”区域点击“生成面试追问”。
+7. 确认页面显示问题、原因、关联内容、难度、建议回答、回答策略和风险提醒。
+
+### Demo SQLite 重置
+
+如果你已经在旧结构下启动过后端，SQLite 中可能没有 `interview_question_results` 表。Demo 阶段可以删除本地数据库后重启后端：
+
+```powershell
+Remove-Item backend/resumefit.db -ErrorAction SilentlyContinue
+```
+
 ## MVP 不做什么
 
 MVP 阶段不包含以下能力：

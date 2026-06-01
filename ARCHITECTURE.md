@@ -167,6 +167,7 @@ prompts/
   match_scorer_v1.md
   resume_writer_v1.md
   truth_checker_v1.md
+  interview_question_v1.md
   job_analysis.md
   match_report.md
   resume_generation.md
@@ -242,12 +243,18 @@ prompts/
 - JD
 - JD 分析
 - 定制简历
+- 项目经历
+- 匹配报告
+- 最新真实性风险检测结果（如果存在）
 
 输出：
 
 - 面试问题列表
-- 问题分类
-- 准备建议
+- 为什么会问
+- 关联简历内容
+- 建议回答
+- 回答策略
+- 风险提醒
 
 ## 8. 数据库演进
 
