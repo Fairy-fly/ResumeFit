@@ -1,0 +1,2 @@
+"""ResumeVersion schema placeholder."""
+

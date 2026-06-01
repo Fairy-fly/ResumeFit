@@ -1,0 +1,2 @@
+"""ResumeVersion model placeholder."""
+

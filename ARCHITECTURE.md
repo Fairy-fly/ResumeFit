@@ -1,0 +1,269 @@
+# Architecture
+
+## 1. 架构目标
+
+ResumeFit 的架构应服务两个阶段：
+
+- Demo 阶段：快速跑通核心求职辅助闭环，代码结构清晰，便于迭代。
+- 商业化阶段：预留用户体系、计费、更多模型、更多导出格式和数据库升级能力。
+
+架构不追求过早复杂化，但必须避免把业务逻辑堆在单个大文件中。
+
+## 2. 总体结构
+
+```text
+resume-fit/
+  frontend/              # Vue 3 application
+  backend/               # FastAPI application
+  prompts/               # Prompt templates and prompt docs
+  docs/                  # Future extended documentation
+  README.md
+```
+
+MVP 可先采用前后端分离结构：
+
+- Vue 3 负责交互、表单、结果展示和 Markdown 预览。
+- FastAPI 负责业务 API、数据库访问、AI service、Prompt 加载和工作流编排。
+- SQLite 负责本地持久化。
+- AI provider 通过 OpenAI-compatible HTTP API 调用。
+
+## 3. 后端分层建议
+
+```text
+backend/
+  app/
+    main.py
+    core/
+      config.py
+      database.py
+      security.py
+    api/
+      routes/
+        health.py
+        resume_profiles.py
+        projects.py
+        job_descriptions.py
+        analyses.py
+        resume_versions.py
+    models/
+      user.py
+      resume_profile.py
+      project.py
+      job_description.py
+      job_analysis.py
+      match_report.py
+      resume_version.py
+      interview_question.py
+    ai/
+      client.py
+      prompt_loader.py
+    schemas/
+      user.py
+      resume_profile.py
+      project.py
+      job_description.py
+      analysis.py
+      match_report.py
+      resume_version.py
+      interview_question.py
+    services/
+      job_analysis_service.py
+      match_service.py
+      resume_generation_service.py
+      risk_detection_service.py
+      interview_question_service.py
+    repositories/
+      user_repository.py
+      resume_profile_repository.py
+      project_repository.py
+      job_description_repository.py
+      job_analysis_repository.py
+      match_report_repository.py
+      resume_version_repository.py
+      interview_question_repository.py
+  migrations/
+```
+
+分层职责：
+
+- `api/routes/`：处理 HTTP 请求和响应，不写复杂业务逻辑。
+- `schemas/`：定义请求和响应 DTO。
+- `models/`：定义数据库模型。
+- `repositories/`：封装数据库读写。
+- `services/`：组织业务流程和 AI 调用。
+- `ai/`：封装 OpenAI-compatible client 和 Prompt 加载。
+- `core/`：配置、数据库连接、安全基础设施。
+
+## 4. 前端结构建议
+
+```text
+frontend/
+  src/
+    main.ts
+    App.vue
+    router/
+      index.ts
+    api/
+      client.ts
+      resumeProfiles.ts
+      projects.ts
+      jobDescriptions.ts
+      analyses.ts
+      resumeVersions.ts
+    pages/
+      DashboardPage.vue
+      ResumeProfilePage.vue
+      ProjectsPage.vue
+      JobDescriptionsPage.vue
+      AnalysisWorkspacePage.vue
+      ResumeVersionsPage.vue
+    components/
+      resume/
+      projects/
+      jobs/
+      analysis/
+      common/
+    stores/
+```
+
+前端原则：
+
+- 页面负责组织用户流程。
+- API 调用集中放在 `src/api/`。
+- 通用组件放在 `components/common/`。
+- 不在组件中硬编码后端地址，应通过环境变量配置。
+
+## 5. AI Service 设计
+
+MVP 默认使用 DeepSeek API，但代码必须按 OpenAI-compatible 接口设计。
+
+建议配置：
+
+```text
+AI_BASE_URL=https://api.deepseek.com
+AI_API_KEY=...
+AI_MODEL=deepseek-chat
+AI_TIMEOUT_SECONDS=60
+```
+
+服务层命名应保持供应商中立：
+
+- 使用 `AIClient`，不要命名为 `DeepSeekClient`。
+- 使用 `AI_BASE_URL`，不要命名为 `DEEPSEEK_URL`。
+- 使用 `AI_MODEL`，不要命名为 `DEEPSEEK_MODEL`。
+
+后续切换 OpenAI、通义、智谱或其他兼容接口时，只需要调整配置和少量适配逻辑。
+
+## 6. Prompt 管理
+
+所有 Prompt 放在 `prompts/` 目录，不直接散落在业务代码中。
+
+建议文件：
+
+```text
+prompts/
+  job_analysis.md
+  match_report.md
+  resume_generation.md
+  risk_detection.md
+  interview_questions.md
+```
+
+后端通过 `PromptLoader` 加载 Prompt，并注入结构化上下文。
+
+## 7. AI 工作流
+
+### JD 分析
+
+输入：
+
+- 原始 JD 文本
+
+输出：
+
+- 结构化 `JobAnalysis`
+
+### 匹配评分
+
+输入：
+
+- `ResumeProfile`
+- `Project[]`
+- `JobDescription`
+- `JobAnalysis`
+
+输出：
+
+- `MatchReport`
+
+### 定制简历生成
+
+输入：
+
+- `ResumeProfile`
+- `Project[]`
+- `JobAnalysis`
+- `MatchReport`
+
+输出：
+
+- Markdown 简历内容
+- 生成说明
+
+### 真实性风险检测
+
+输入：
+
+- 原始资料
+- 生成后的 `ResumeVersion`
+
+输出：
+
+- 风险等级
+- 风险项
+- 修改建议
+
+### 面试追问预测
+
+输入：
+
+- JD
+- JD 分析
+- 定制简历
+
+输出：
+
+- 面试问题列表
+- 问题分类
+- 准备建议
+
+## 8. 数据库演进
+
+MVP 使用 SQLite，适合本地 Demo 和单用户/少量用户验证。
+
+商业化阶段可升级 PostgreSQL：
+
+- 保留整数主键或 UUID 的一致策略。
+- 使用迁移工具管理 schema。
+- 为用户维度、版本维度和 AI 任务日志添加索引。
+- 将大文本、AI 输出和审计日志拆分清楚。
+
+## 9. 安全与配置
+
+必须遵守：
+
+- 不硬编码 API Key。
+- 不把 `.env` 提交到仓库。
+- 不在日志中输出完整 API Key。
+- 用户简历内容属于敏感数据，日志中避免打印完整原文。
+- AI 请求和响应可在 Demo 阶段做最小记录，商业化前必须增加隐私策略和数据删除能力。
+
+## 10. 后续商业化扩展点
+
+- `BillingService`：会员、套餐、支付。
+- `ExportService`：PDF、Word、多模板导出。
+- `ProviderRegistry`：多 AI 模型和供应商管理。
+- `AuthService`：登录、注册、OAuth。
+- `UsageTrackingService`：调用次数、额度、成本统计。
+- `TemplateService`：简历模板和样式。
+- `ApplicationTracker`：投递进度管理。

@@ -1,0 +1,2 @@
+"""InterviewQuestion model placeholder."""
+

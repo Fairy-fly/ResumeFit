@@ -1,0 +1,2 @@
+"""Job analysis service placeholder."""
+

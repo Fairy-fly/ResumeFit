@@ -1,0 +1,2 @@
+"""JobDescription repository placeholder."""
+

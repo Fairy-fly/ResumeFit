@@ -1,0 +1,2 @@
+"""MatchReport schema placeholder."""
+

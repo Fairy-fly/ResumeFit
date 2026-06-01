@@ -1,0 +1,2 @@
+"""JobAnalysis repository placeholder."""
+

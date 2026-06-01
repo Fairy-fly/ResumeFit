@@ -1,0 +1,2 @@
+"""InterviewQuestion repository placeholder."""
+

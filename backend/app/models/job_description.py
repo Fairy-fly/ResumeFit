@@ -1,0 +1,2 @@
+"""JobDescription model placeholder."""
+

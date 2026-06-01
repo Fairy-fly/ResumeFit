@@ -1,0 +1,2 @@
+"""Project schema placeholder."""
+

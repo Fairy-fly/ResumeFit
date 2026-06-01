@@ -1,0 +1,2 @@
+"""JobAnalysis model placeholder."""
+
