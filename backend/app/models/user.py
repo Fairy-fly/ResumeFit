@@ -22,3 +22,4 @@ class User(Base):
     )
 
     resume_profiles = relationship("ResumeProfile", back_populates="user")
+    projects = relationship("Project", back_populates="user")

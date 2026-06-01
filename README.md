@@ -135,6 +135,43 @@ Invoke-RestMethod http://localhost:8000/resume-profiles
 6. 确认页面下方出现已保存简历。
 7. 刷新页面，确认简历列表仍然存在。
 
+## 项目库模块测试
+
+### API 测试
+
+启动后端后，保存一个项目：
+
+```powershell
+Invoke-RestMethod http://localhost:8000/projects `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{"name":"ResumeFit Demo","project_type":"Web 应用","role":"独立开发","tech_stack":["Vue 3","FastAPI","SQLite"],"description":"智能简历定制平台 Demo","user_contribution":"负责项目库模块设计与实现","work_url":"https://example.com"}'
+```
+
+查询已保存项目列表：
+
+```powershell
+Invoke-RestMethod http://localhost:8000/projects
+```
+
+### 页面测试
+
+1. 启动后端。
+2. 启动前端。
+3. 打开 `http://localhost:5173/projects`。
+4. 输入项目名称、项目类型、我的角色、技术栈、项目描述、个人贡献和作品链接。
+5. 点击“保存项目”。
+6. 确认页面下方出现已保存项目。
+7. 刷新页面，确认项目列表仍然存在。
+
+### Demo SQLite 重置
+
+如果你已经在旧字段结构下启动过后端，SQLite 中的 `projects` 表不会自动增加新字段。Demo 阶段可以删除本地数据库后重启后端，让应用重新创建表：
+
+```powershell
+Remove-Item backend/resumefit.db -ErrorAction SilentlyContinue
+```
+
 ## MVP 不做什么
 
 MVP 阶段不包含以下能力：
