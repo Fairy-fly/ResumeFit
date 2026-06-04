@@ -2,12 +2,20 @@
 import { computed, onMounted, ref } from "vue";
 
 import { getDashboardSummary, type DashboardSummary } from "../api/dashboard";
+import { getFriendlyErrorMessage } from "../utils/errors";
 
 interface WorkflowStep {
   title: string;
   description: string;
   route: string;
   action: string;
+}
+
+interface NextAction {
+  title: string;
+  description: string;
+  route: string;
+  actionText: string;
 }
 
 const summary = ref<DashboardSummary | null>(null);
@@ -66,11 +74,11 @@ const workflowSteps: WorkflowStep[] = [
 ];
 
 const quickLinks = [
-  { label: "通用简历", route: "/resume", description: "录入和查看原始简历" },
-  { label: "项目库", route: "/projects", description: "管理可用于简历的真实项目" },
-  { label: "岗位 JD", route: "/jobs", description: "保存 JD 并生成岗位分析" },
-  { label: "匹配分析", route: "/analysis", description: "生成匹配度报告" },
-  { label: "简历版本", route: "/versions", description: "生成、检测、追问和导出" }
+  { label: "填写简历", route: "/resume", description: "录入和查看原始简历" },
+  { label: "添加项目", route: "/projects", description: "管理可用于简历的真实项目" },
+  { label: "分析 JD", route: "/jobs", description: "保存 JD 并生成岗位分析" },
+  { label: "生成报告", route: "/analysis", description: "生成匹配度报告" },
+  { label: "管理版本", route: "/versions", description: "生成、检测、追问和导出" }
 ];
 
 const statCards = computed(() => [
@@ -106,6 +114,108 @@ const statCards = computed(() => [
   }
 ]);
 
+const completedCoreSteps = computed(() => {
+  if (!summary.value) {
+    return 0;
+  }
+
+  return [
+    summary.value.resume_profile_count > 0,
+    summary.value.project_count > 0,
+    summary.value.job_description_count > 0,
+    summary.value.match_report_count > 0,
+    summary.value.resume_version_count > 0
+  ].filter(Boolean).length;
+});
+
+const progressPercent = computed(() => `${Math.round((completedCoreSteps.value / 5) * 100)}%`);
+
+const nextAction = computed<NextAction | null>(() => {
+  if (!summary.value) {
+    return null;
+  }
+
+  if (summary.value.resume_profile_count === 0) {
+    return {
+      title: "填写通用简历",
+      description: "先粘贴或输入一份基础简历，后续才能进行岗位匹配和定制生成。",
+      route: "/resume",
+      actionText: "填写简历"
+    };
+  }
+
+  if (summary.value.project_count === 0) {
+    return {
+      title: "添加项目经历",
+      description: "项目经历会用于证明技能真实性，并帮助定制简历更有针对性。",
+      route: "/projects",
+      actionText: "添加项目"
+    };
+  }
+
+  if (summary.value.job_description_count === 0) {
+    return {
+      title: "粘贴并分析岗位 JD",
+      description: "保存目标岗位 JD 后，系统才能提取岗位要求、关键词和简历侧重点。",
+      route: "/jobs",
+      actionText: "分析 JD"
+    };
+  }
+
+  if (summary.value.match_report_count === 0) {
+    return {
+      title: "生成匹配度报告",
+      description: "选择通用简历、项目经历和已分析 JD，生成岗位匹配分数与修改建议。",
+      route: "/analysis",
+      actionText: "生成报告"
+    };
+  }
+
+  if (summary.value.resume_version_count === 0) {
+    return {
+      title: "生成定制简历",
+      description: "基于匹配报告生成 Markdown 定制简历，并查看每处修改原因。",
+      route: "/versions",
+      actionText: "生成定制简历"
+    };
+  }
+
+  return {
+    title: "进入简历版本工作区",
+    description: "核心链路已跑通，可以继续做真实性检测、面试追问预测或导出 Markdown。",
+    route: "/versions",
+    actionText: "管理版本"
+  };
+});
+
+function workflowStatus(index: number): "done" | "current" | "pending" | "available" {
+  if (index < 5) {
+    if (index < completedCoreSteps.value) {
+      return "done";
+    }
+
+    if (index === completedCoreSteps.value && completedCoreSteps.value < 5) {
+      return "current";
+    }
+
+    return "pending";
+  }
+
+  return summary.value?.resume_version_count ? "available" : "pending";
+}
+
+function workflowStatusLabel(index: number): string {
+  const status = workflowStatus(index);
+  const labels = {
+    done: "已完成",
+    current: "下一步",
+    available: "可继续",
+    pending: "待完成"
+  };
+
+  return labels[status];
+}
+
 async function loadSummary() {
   isLoading.value = true;
   errorMessage.value = "";
@@ -113,7 +223,7 @@ async function loadSummary() {
   try {
     summary.value = await getDashboardSummary();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "无法加载首页统计。";
+    errorMessage.value = getFriendlyErrorMessage(error);
   } finally {
     isLoading.value = false;
   }
@@ -141,6 +251,32 @@ onMounted(loadSummary);
       {{ errorMessage }}
     </p>
 
+    <section class="dashboard-overview" aria-labelledby="progress-title">
+      <article class="progress-card">
+        <div>
+          <p class="eyebrow">当前完成进度</p>
+          <h2 id="progress-title">{{ completedCoreSteps }} / 5</h2>
+          <p>简历、项目、岗位 JD、匹配报告和简历版本五项核心数据。</p>
+        </div>
+        <div class="progress-bar" aria-hidden="true">
+          <span :style="{ width: progressPercent }"></span>
+        </div>
+      </article>
+
+      <article class="next-action-card">
+        <p class="eyebrow">下一步建议</p>
+        <template v-if="nextAction">
+          <h2>{{ nextAction.title }}</h2>
+          <p>{{ nextAction.description }}</p>
+          <RouterLink class="primary-action" :to="nextAction.route">{{ nextAction.actionText }}</RouterLink>
+        </template>
+        <template v-else>
+          <h2>正在读取项目进度</h2>
+          <p>加载完成后，这里会根据当前数据给出下一步建议。</p>
+        </template>
+      </article>
+    </section>
+
     <section class="dashboard-section" aria-labelledby="summary-title">
       <div class="section-heading">
         <h2 id="summary-title">当前数据</h2>
@@ -161,8 +297,14 @@ onMounted(loadSummary);
         <p>答辩或演示时建议从上到下依次完成，每一步都对应一个可操作页面。</p>
       </div>
       <div class="workflow-grid">
-        <article v-for="(step, index) in workflowSteps" :key="step.title" class="step-card">
+        <article
+          v-for="(step, index) in workflowSteps"
+          :key="step.title"
+          class="step-card"
+          :class="`step-${workflowStatus(index)}`"
+        >
           <div class="step-index">{{ index + 1 }}</div>
+          <span class="step-status">{{ workflowStatusLabel(index) }}</span>
           <h3>{{ step.title }}</h3>
           <p>{{ step.description }}</p>
           <RouterLink class="step-action" :to="step.route">{{ step.action }}</RouterLink>
@@ -251,6 +393,70 @@ onMounted(loadSummary);
   color: #9b2c1f;
 }
 
+.dashboard-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+}
+
+.progress-card,
+.next-action-card {
+  display: grid;
+  gap: 16px;
+  border: 1px solid #dedfe3;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 20px;
+}
+
+.next-action-card {
+  border-color: #9eb2ff;
+  background: #f5f7ff;
+}
+
+.progress-card h2,
+.next-action-card h2 {
+  margin: 0;
+  color: #1f2a37;
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+.progress-card p,
+.next-action-card p {
+  margin: 8px 0 0;
+  color: #5f6877;
+  line-height: 1.6;
+}
+
+.progress-bar {
+  overflow: hidden;
+  height: 10px;
+  border-radius: 999px;
+  background: #e6e9f2;
+}
+
+.progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #243b99;
+  transition: width 0.2s ease;
+}
+
+.primary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 40px;
+  border-radius: 8px;
+  background: #243b99;
+  color: #ffffff;
+  font-weight: 800;
+  padding: 0 16px;
+}
+
 .dashboard-section {
   display: grid;
   gap: 16px;
@@ -310,10 +516,26 @@ onMounted(loadSummary);
 
 .step-card {
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto auto auto 1fr auto;
   gap: 10px;
   min-height: 220px;
   padding: 18px;
+}
+
+.step-card.step-current {
+  border-color: #9eb2ff;
+  background: #f5f7ff;
+  box-shadow: inset 4px 0 0 #243b99;
+}
+
+.step-card.step-done {
+  border-color: #b7dec5;
+  background: #f7fcf9;
+}
+
+.step-card.step-available {
+  border-color: #c7ccd6;
+  background: #fbfcff;
 }
 
 .step-index {
@@ -326,6 +548,36 @@ onMounted(loadSummary);
   background: #e9f4ef;
   color: #245845;
   font-weight: 800;
+}
+
+.step-current .step-index {
+  background: #243b99;
+  color: #ffffff;
+}
+
+.step-done .step-index {
+  background: #dff4e7;
+  color: #176b3a;
+}
+
+.step-status {
+  width: fit-content;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #243b99;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 8px;
+}
+
+.step-done .step-status {
+  background: #e9f8ef;
+  color: #176b3a;
+}
+
+.step-pending .step-status {
+  background: #f1f3f7;
+  color: #687181;
 }
 
 .step-card h3 {
@@ -390,6 +642,10 @@ onMounted(loadSummary);
 @media (max-width: 760px) {
   .dashboard-header {
     display: grid;
+  }
+
+  .dashboard-overview {
+    grid-template-columns: 1fr;
   }
 
   .refresh-button {
