@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.analyses import router as analyses_router
+from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.health import router as health_router
 from app.api.routes.interview_questions import router as interview_questions_router
 from app.api.routes.job_descriptions import router as job_descriptions_router
@@ -29,6 +30,7 @@ def create_app() -> FastAPI:
         init_db()
 
     app.include_router(health_router)
+    app.include_router(dashboard_router)
     app.include_router(resume_profiles_router)
     app.include_router(projects_router)
     app.include_router(job_descriptions_router)

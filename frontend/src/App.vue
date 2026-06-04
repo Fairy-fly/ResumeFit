@@ -1,11 +1,11 @@
 <script setup lang="ts">
 const navItems = [
-  { label: "总览", to: "/" },
-  { label: "简历", to: "/resume" },
-  { label: "项目", to: "/projects" },
-  { label: "JD", to: "/jobs" },
-  { label: "分析", to: "/analysis" },
-  { label: "版本", to: "/versions" }
+  { label: "首页", to: "/" },
+  { label: "通用简历", to: "/resume" },
+  { label: "项目库", to: "/projects" },
+  { label: "岗位 JD", to: "/jobs" },
+  { label: "匹配分析", to: "/analysis" },
+  { label: "简历版本", to: "/versions" }
 ];
 </script>
 

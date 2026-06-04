@@ -51,6 +51,19 @@ def test_health_check(client: TestClient) -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_dashboard_summary_starts_empty(client: TestClient) -> None:
+    response = client.get("/dashboard/summary")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "resume_profile_count": 0,
+        "project_count": 0,
+        "job_description_count": 0,
+        "match_report_count": 0,
+        "resume_version_count": 0,
+    }
+
+
 def test_resume_profiles_start_empty(client: TestClient) -> None:
     response = client.get("/resume-profiles")
     assert response.status_code == 200
@@ -921,6 +934,25 @@ def _create_generated_resume_version(client: TestClient, ids: dict[str, int]) ->
     )
     assert response.status_code == 201
     return response.json()["id"]
+
+
+def test_dashboard_summary_counts_demo_resources(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+    _create_generated_resume_version(client, ids)
+
+    response = client.get("/dashboard/summary")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "resume_profile_count": 1,
+        "project_count": 1,
+        "job_description_count": 1,
+        "match_report_count": 1,
+        "resume_version_count": 1,
+    }
 
 
 def test_create_truth_check_result_with_mock_ai(

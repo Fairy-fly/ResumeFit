@@ -117,6 +117,26 @@ npm install
 npm run build
 ```
 
+## Demo 演示顺序
+
+建议从首页开始演示。打开 `http://localhost:5173/` 后，首页会展示 8 步流程、当前数据统计和各功能入口。
+
+1. 在首页确认流程和统计数据。
+2. 进入 `/resume`，填写通用简历。
+3. 进入 `/projects`，添加真实项目经历。
+4. 进入 `/jobs`，粘贴岗位 JD 并生成岗位分析。
+5. 进入 `/analysis`，选择简历、项目和已分析 JD，生成匹配度报告。
+6. 进入 `/versions`，选择匹配报告并生成 Markdown 定制简历。
+7. 在 `/versions` 完成真实性风险检测。
+8. 在 `/versions` 生成面试追问预测。
+9. 在 `/versions` 导出 Markdown 文件。
+
+首页统计接口只返回数量，不返回简历正文、项目内容或 JD 原文：
+
+```powershell
+Invoke-RestMethod http://localhost:8000/dashboard/summary
+```
+
 ## 通用简历输入模块测试
 
 ### API 测试
