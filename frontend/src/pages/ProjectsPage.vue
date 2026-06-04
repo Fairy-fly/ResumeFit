@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 
 import { createProject, listProjects, type ProjectRead } from "../api/projects";
+import DetailModal from "../components/common/DetailModal.vue";
 
 const name = ref("");
 const projectType = ref("");
@@ -11,6 +12,7 @@ const description = ref("");
 const userContribution = ref("");
 const workUrl = ref("");
 const projects = ref<ProjectRead[]>([]);
+const selectedProjectDetail = ref<ProjectRead | null>(null);
 const isLoading = ref(false);
 const isSaving = ref(false);
 const errorMessage = ref("");
@@ -179,9 +181,73 @@ onMounted(() => {
           <a v-if="project.work_url" :href="project.work_url" target="_blank" rel="noreferrer">
             {{ project.work_url }}
           </a>
+          <div class="project-actions">
+            <button class="secondary-button" type="button" @click="selectedProjectDetail = project">查看详情</button>
+          </div>
         </article>
       </div>
     </section>
+
+    <DetailModal
+      v-if="selectedProjectDetail"
+      :title="selectedProjectDetail.name"
+      :subtitle="`创建时间：${formatDate(selectedProjectDetail.created_at)} · 更新时间：${formatDate(selectedProjectDetail.updated_at)}`"
+      @close="selectedProjectDetail = null"
+    >
+      <dl class="detail-list">
+        <div>
+          <dt>项目名称</dt>
+          <dd>{{ selectedProjectDetail.name }}</dd>
+        </div>
+        <div>
+          <dt>项目类型</dt>
+          <dd>{{ selectedProjectDetail.project_type }}</dd>
+        </div>
+        <div>
+          <dt>我的角色</dt>
+          <dd>{{ selectedProjectDetail.role }}</dd>
+        </div>
+        <div>
+          <dt>作品链接</dt>
+          <dd>
+            <a
+              v-if="selectedProjectDetail.work_url"
+              :href="selectedProjectDetail.work_url"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {{ selectedProjectDetail.work_url }}
+            </a>
+            <span v-else>未填写</span>
+          </dd>
+        </div>
+        <div>
+          <dt>创建时间</dt>
+          <dd>{{ formatDate(selectedProjectDetail.created_at) }}</dd>
+        </div>
+        <div>
+          <dt>更新时间</dt>
+          <dd>{{ formatDate(selectedProjectDetail.updated_at) }}</dd>
+        </div>
+      </dl>
+
+      <section class="detail-block">
+        <h3>技术栈</h3>
+        <div class="tag-list" aria-label="技术栈详情">
+          <span v-for="tech in selectedProjectDetail.tech_stack" :key="tech">{{ tech }}</span>
+        </div>
+      </section>
+
+      <section class="detail-block">
+        <h3>项目描述</h3>
+        <p class="detail-text">{{ selectedProjectDetail.description }}</p>
+      </section>
+
+      <section class="detail-block">
+        <h3>个人贡献</h3>
+        <p class="detail-text">{{ selectedProjectDetail.user_contribution }}</p>
+      </section>
+    </DetailModal>
   </section>
 </template>
 
@@ -280,6 +346,11 @@ onMounted(() => {
   gap: 12px;
 }
 
+.project-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .project-item {
   display: grid;
   gap: 12px;
@@ -311,6 +382,53 @@ onMounted(() => {
   overflow-wrap: anywhere;
 }
 
+.detail-list {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.detail-list div {
+  display: grid;
+  gap: 4px;
+}
+
+.detail-list dt {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.detail-list dd {
+  margin: 0;
+  color: #343944;
+  line-height: 1.6;
+}
+
+.detail-list a {
+  color: #243b99;
+  overflow-wrap: anywhere;
+}
+
+.detail-block {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.detail-block h3 {
+  margin: 0;
+  color: #1d1f24;
+  font-size: 18px;
+}
+
+.detail-text {
+  margin: 0;
+  color: #4d5564;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
 .tag-list {
   display: flex;
   flex-wrap: wrap;
@@ -337,6 +455,10 @@ onMounted(() => {
   .project-item-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .project-actions {
+    justify-content: flex-start;
   }
 }
 </style>

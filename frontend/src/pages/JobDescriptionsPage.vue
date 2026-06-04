@@ -8,12 +8,14 @@ import {
   type JobAnalysisRead,
   type JobDescriptionRead
 } from "../api/jobDescriptions";
+import DetailModal from "../components/common/DetailModal.vue";
 
 const companyName = ref("");
 const jobTitle = ref("");
 const rawText = ref("");
 const jobDescriptions = ref<JobDescriptionRead[]>([]);
 const selectedJobDescription = ref<JobDescriptionRead | null>(null);
+const selectedJobDetail = ref<JobDescriptionRead | null>(null);
 const analysis = ref<JobAnalysisRead | null>(null);
 const isLoading = ref(false);
 const isAnalyzing = ref(false);
@@ -25,6 +27,14 @@ const canAnalyze = computed(
     jobTitle.value.trim().length > 0 &&
     rawText.value.trim().length > 0
 );
+
+const selectedJobDetailAnalysis = computed(() => {
+  if (!selectedJobDetail.value || !analysis.value) {
+    return null;
+  }
+
+  return analysis.value.job_description_id === selectedJobDetail.value.id ? analysis.value : null;
+});
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("zh-CN", {
@@ -214,9 +224,106 @@ onMounted(() => {
             </div>
           </div>
           <p>{{ previewText(jobDescription.raw_text) }}</p>
+          <div class="job-actions">
+            <button class="secondary-button" type="button" @click="selectedJobDetail = jobDescription">查看详情</button>
+          </div>
         </article>
       </div>
     </section>
+
+    <DetailModal
+      v-if="selectedJobDetail"
+      :title="selectedJobDetail.job_title"
+      :subtitle="`创建时间：${formatDate(selectedJobDetail.created_at)} · 更新时间：${formatDate(selectedJobDetail.updated_at)}`"
+      @close="selectedJobDetail = null"
+    >
+      <dl class="detail-list">
+        <div>
+          <dt>公司名称</dt>
+          <dd>{{ selectedJobDetail.company_name ?? "未填写" }}</dd>
+        </div>
+        <div>
+          <dt>岗位名称</dt>
+          <dd>{{ selectedJobDetail.job_title }}</dd>
+        </div>
+        <div>
+          <dt>分析状态</dt>
+          <dd>{{ selectedJobDetail.status }}</dd>
+        </div>
+        <div>
+          <dt>创建时间</dt>
+          <dd>{{ formatDate(selectedJobDetail.created_at) }}</dd>
+        </div>
+        <div>
+          <dt>更新时间</dt>
+          <dd>{{ formatDate(selectedJobDetail.updated_at) }}</dd>
+        </div>
+      </dl>
+
+      <article class="detail-block">
+        <h3>JD 原文</h3>
+        <pre class="detail-pre">{{ selectedJobDetail.raw_text }}</pre>
+      </article>
+
+      <section v-if="selectedJobDetailAnalysis" class="detail-block">
+        <h3>当前分析结果</h3>
+        <div class="analysis-grid">
+          <article class="analysis-card">
+            <h4>岗位概览</h4>
+            <dl>
+              <div>
+                <dt>岗位名称</dt>
+                <dd>{{ selectedJobDetailAnalysis.job_title }}</dd>
+              </div>
+              <div>
+                <dt>岗位类型</dt>
+                <dd>{{ selectedJobDetailAnalysis.job_type }}</dd>
+              </div>
+            </dl>
+          </article>
+
+          <article class="analysis-card">
+            <h4>必备技能</h4>
+            <div class="tag-list">
+              <span v-for="skill in selectedJobDetailAnalysis.required_skills" :key="skill">{{ skill }}</span>
+              <span v-if="selectedJobDetailAnalysis.required_skills.length === 0">信息不足</span>
+            </div>
+          </article>
+
+          <article class="analysis-card">
+            <h4>加分技能</h4>
+            <div class="tag-list">
+              <span v-for="skill in selectedJobDetailAnalysis.bonus_skills" :key="skill">{{ skill }}</span>
+              <span v-if="selectedJobDetailAnalysis.bonus_skills.length === 0">信息不足</span>
+            </div>
+          </article>
+
+          <article class="analysis-card">
+            <h4>关键词</h4>
+            <div class="tag-list">
+              <span v-for="keyword in selectedJobDetailAnalysis.keywords" :key="keyword">{{ keyword }}</span>
+              <span v-if="selectedJobDetailAnalysis.keywords.length === 0">信息不足</span>
+            </div>
+          </article>
+
+          <article class="analysis-card wide">
+            <h4>岗位职责</h4>
+            <ul>
+              <li v-for="item in selectedJobDetailAnalysis.responsibilities" :key="item">{{ item }}</li>
+              <li v-if="selectedJobDetailAnalysis.responsibilities.length === 0">信息不足</li>
+            </ul>
+          </article>
+
+          <article class="analysis-card wide">
+            <h4>简历侧重点建议</h4>
+            <ul>
+              <li v-for="item in selectedJobDetailAnalysis.resume_focus_suggestions" :key="item">{{ item }}</li>
+              <li v-if="selectedJobDetailAnalysis.resume_focus_suggestions.length === 0">信息不足</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+    </DetailModal>
   </section>
 </template>
 
@@ -379,6 +486,11 @@ onMounted(() => {
   gap: 12px;
 }
 
+.job-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .job-meta {
   display: flex;
   align-items: center;
@@ -393,6 +505,58 @@ onMounted(() => {
   color: #243b99;
   font-weight: 700;
   padding: 5px 9px;
+}
+
+.detail-list {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.detail-list div {
+  display: grid;
+  gap: 4px;
+}
+
+.detail-list dt {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.detail-list dd {
+  margin: 0;
+  color: #343944;
+  line-height: 1.6;
+}
+
+.detail-block {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.detail-block h3 {
+  margin: 0;
+  color: #1d1f24;
+  font-size: 18px;
+}
+
+.detail-pre {
+  overflow-x: auto;
+  margin: 0;
+  border-radius: 8px;
+  background: #f6f7f9;
+  color: #1d1f24;
+  font: 14px/1.7 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  padding: 14px;
+  white-space: pre-wrap;
+}
+
+.analysis-card h4 {
+  margin: 0;
+  color: #1d1f24;
+  font-size: 18px;
 }
 
 .tag-list {
@@ -426,6 +590,10 @@ onMounted(() => {
   .job-item-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .job-actions {
+    justify-content: flex-start;
   }
 
   .analysis-grid {

@@ -6,10 +6,12 @@ import {
   listResumeProfiles,
   type ResumeProfileRead
 } from "../api/resumeProfiles";
+import DetailModal from "../components/common/DetailModal.vue";
 
 const title = ref("");
 const rawMarkdown = ref("");
 const resumes = ref<ResumeProfileRead[]>([]);
+const selectedResumeDetail = ref<ResumeProfileRead | null>(null);
 const isLoading = ref(false);
 const isSaving = ref(false);
 const errorMessage = ref("");
@@ -115,9 +117,39 @@ onMounted(() => {
             <time :datetime="resume.created_at">{{ formatDate(resume.created_at) }}</time>
           </div>
           <p>{{ previewResume(resume.raw_markdown) }}</p>
+          <div class="resume-actions">
+            <button class="secondary-button" type="button" @click="selectedResumeDetail = resume">查看详情</button>
+          </div>
         </article>
       </div>
     </section>
+
+    <DetailModal
+      v-if="selectedResumeDetail"
+      :title="selectedResumeDetail.title"
+      :subtitle="`创建时间：${formatDate(selectedResumeDetail.created_at)} · 更新时间：${formatDate(selectedResumeDetail.updated_at)}`"
+      @close="selectedResumeDetail = null"
+    >
+      <dl class="detail-list">
+        <div>
+          <dt>简历标题</dt>
+          <dd>{{ selectedResumeDetail.title }}</dd>
+        </div>
+        <div>
+          <dt>创建时间</dt>
+          <dd>{{ formatDate(selectedResumeDetail.created_at) }}</dd>
+        </div>
+        <div>
+          <dt>更新时间</dt>
+          <dd>{{ formatDate(selectedResumeDetail.updated_at) }}</dd>
+        </div>
+      </dl>
+
+      <article class="detail-block">
+        <h3>简历正文</h3>
+        <pre class="detail-pre">{{ selectedResumeDetail.raw_markdown }}</pre>
+      </article>
+    </DetailModal>
   </section>
 </template>
 
@@ -217,6 +249,11 @@ onMounted(() => {
   gap: 12px;
 }
 
+.resume-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .resume-item {
   display: grid;
   gap: 10px;
@@ -241,6 +278,51 @@ onMounted(() => {
   line-height: 1.6;
 }
 
+.detail-list {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.detail-list div {
+  display: grid;
+  gap: 4px;
+}
+
+.detail-list dt {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.detail-list dd {
+  margin: 0;
+  color: #343944;
+  line-height: 1.6;
+}
+
+.detail-block {
+  display: grid;
+  gap: 10px;
+}
+
+.detail-block h3 {
+  margin: 0;
+  color: #1d1f24;
+  font-size: 18px;
+}
+
+.detail-pre {
+  overflow-x: auto;
+  margin: 0;
+  border-radius: 8px;
+  background: #f6f7f9;
+  color: #1d1f24;
+  font: 14px/1.7 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  padding: 14px;
+  white-space: pre-wrap;
+}
+
 .error-message {
   margin: 0;
   color: #b42318;
@@ -252,6 +334,10 @@ onMounted(() => {
   .resume-item-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .resume-actions {
+    justify-content: flex-start;
   }
 }
 </style>
