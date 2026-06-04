@@ -37,12 +37,18 @@ function formatDate(value: string): string {
       <div>
         <h2 id="interview-question-title">面试追问预测</h2>
         <p class="muted-text">基于当前选择的简历版本、JD、项目和真实性风险，生成保守可解释的追问准备。</p>
+        <p v-if="selectedResumeVersion" class="muted-text">
+          当前版本历史预测 {{ interviewQuestionResults.length }} 次，默认展示最近一次。
+        </p>
       </div>
     </div>
 
     <p v-if="!selectedResumeVersion" class="muted-text">请先在上方选择一个已生成的定制简历版本。</p>
     <p v-if="isLoadingInterviewQuestions" class="muted-text">正在加载历史追问预测...</p>
     <p v-if="interviewErrorMessage" class="error-message">{{ interviewErrorMessage }}</p>
+    <p v-if="selectedResumeVersion && !isLoadingInterviewQuestions && !interviewQuestionResult" class="muted-text">
+      当前版本暂无历史追问预测结果。
+    </p>
 
     <LoadingButton
       class="primary-button"
@@ -59,7 +65,8 @@ function formatDate(value: string): string {
         <div>
           <h3>追问预测结果</h3>
           <p class="muted-text">
-            模型：{{ interviewQuestionResult.model_name }} · {{ formatDate(interviewQuestionResult.created_at) }}
+            历史预测 {{ interviewQuestionResults.length }} 次 · 模型：{{ interviewQuestionResult.model_name }} ·
+            {{ formatDate(interviewQuestionResult.created_at) }}
           </p>
         </div>
       </div>

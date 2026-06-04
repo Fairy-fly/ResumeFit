@@ -56,6 +56,8 @@ const interviewErrorMessage = ref("");
 const copyMessage = ref("");
 const exportMessage = ref("");
 const exportErrorMessage = ref("");
+let truthCheckLoadRequestId = 0;
+let interviewQuestionLoadRequestId = 0;
 
 const analyzedJobDescriptions = computed(() =>
   jobDescriptions.value.filter((jobDescription) => jobDescription.status === "analyzed")
@@ -81,6 +83,26 @@ const canCheckTruth = computed(() => selectedResumeVersion.value !== null);
 
 const canGenerateInterviewQuestions = computed(() => selectedResumeVersion.value !== null);
 
+function sortByCreatedAtDesc<T extends { created_at: string }>(items: T[]): T[] {
+  return [...items].sort(
+    (first, second) => new Date(second.created_at).getTime() - new Date(first.created_at).getTime()
+  );
+}
+
+function clearTruthCheckState(): void {
+  truthCheckLoadRequestId += 1;
+  truthChecks.value = [];
+  truthCheck.value = null;
+  isLoadingTruthChecks.value = false;
+}
+
+function clearInterviewQuestionState(): void {
+  interviewQuestionLoadRequestId += 1;
+  interviewQuestionResults.value = [];
+  interviewQuestionResult.value = null;
+  isLoadingInterviewQuestions.value = false;
+}
+
 function applyMatchReport(matchReport: MatchReportRead): void {
   selectedMatchReportId.value = matchReport.id;
   selectedResumeId.value = matchReport.resume_profile_id;
@@ -92,42 +114,82 @@ function applyMatchReport(matchReport: MatchReportRead): void {
 }
 
 function upsertResumeVersion(version: ResumeVersionRead): void {
-  resumeVersions.value = [
+  resumeVersions.value = sortByCreatedAtDesc([
     version,
     ...resumeVersions.value.filter((existingVersion) => existingVersion.id !== version.id)
-  ];
+  ]);
   selectedResumeVersionId.value = version.id;
 }
 
-async function loadTruthChecksForVersion(resumeVersionId: number): Promise<void> {
+async function loadTruthChecksForVersion(
+  resumeVersionId: number,
+  options: { clearBeforeLoad?: boolean } = {}
+): Promise<void> {
+  const requestId = ++truthCheckLoadRequestId;
+  const shouldClearBeforeLoad = options.clearBeforeLoad ?? true;
   isLoadingTruthChecks.value = true;
   truthErrorMessage.value = "";
-
-  try {
-    truthChecks.value = await listTruthCheckResults(resumeVersionId);
-    truthCheck.value = truthChecks.value[0] ?? null;
-  } catch (error) {
+  if (shouldClearBeforeLoad) {
     truthChecks.value = [];
     truthCheck.value = null;
+  }
+
+  try {
+    const loadedTruthChecks = sortByCreatedAtDesc(await listTruthCheckResults(resumeVersionId));
+    if (requestId !== truthCheckLoadRequestId || selectedResumeVersionId.value !== resumeVersionId) {
+      return;
+    }
+    truthChecks.value = loadedTruthChecks;
+    truthCheck.value = loadedTruthChecks[0] ?? null;
+  } catch (error) {
+    if (requestId !== truthCheckLoadRequestId || selectedResumeVersionId.value !== resumeVersionId) {
+      return;
+    }
+    if (shouldClearBeforeLoad) {
+      truthChecks.value = [];
+      truthCheck.value = null;
+    }
     truthErrorMessage.value = getFriendlyErrorMessage(error);
   } finally {
-    isLoadingTruthChecks.value = false;
+    if (requestId === truthCheckLoadRequestId && selectedResumeVersionId.value === resumeVersionId) {
+      isLoadingTruthChecks.value = false;
+    }
   }
 }
 
-async function loadInterviewQuestionsForVersion(resumeVersionId: number): Promise<void> {
+async function loadInterviewQuestionsForVersion(
+  resumeVersionId: number,
+  options: { clearBeforeLoad?: boolean } = {}
+): Promise<void> {
+  const requestId = ++interviewQuestionLoadRequestId;
+  const shouldClearBeforeLoad = options.clearBeforeLoad ?? true;
   isLoadingInterviewQuestions.value = true;
   interviewErrorMessage.value = "";
-
-  try {
-    interviewQuestionResults.value = await listInterviewQuestionResults(resumeVersionId);
-    interviewQuestionResult.value = interviewQuestionResults.value[0] ?? null;
-  } catch (error) {
+  if (shouldClearBeforeLoad) {
     interviewQuestionResults.value = [];
     interviewQuestionResult.value = null;
+  }
+
+  try {
+    const loadedInterviewQuestionResults = sortByCreatedAtDesc(await listInterviewQuestionResults(resumeVersionId));
+    if (requestId !== interviewQuestionLoadRequestId || selectedResumeVersionId.value !== resumeVersionId) {
+      return;
+    }
+    interviewQuestionResults.value = loadedInterviewQuestionResults;
+    interviewQuestionResult.value = loadedInterviewQuestionResults[0] ?? null;
+  } catch (error) {
+    if (requestId !== interviewQuestionLoadRequestId || selectedResumeVersionId.value !== resumeVersionId) {
+      return;
+    }
+    if (shouldClearBeforeLoad) {
+      interviewQuestionResults.value = [];
+      interviewQuestionResult.value = null;
+    }
     interviewErrorMessage.value = getFriendlyErrorMessage(error);
   } finally {
-    isLoadingInterviewQuestions.value = false;
+    if (requestId === interviewQuestionLoadRequestId && selectedResumeVersionId.value === resumeVersionId) {
+      isLoadingInterviewQuestions.value = false;
+    }
   }
 }
 
@@ -137,7 +199,7 @@ async function refreshResumeVersions(preferredResumeVersionId?: number): Promise
   interviewErrorMessage.value = "";
 
   try {
-    resumeVersions.value = await listResumeVersions();
+    resumeVersions.value = sortByCreatedAtDesc(await listResumeVersions());
     const preferredId = preferredResumeVersionId ?? selectedResumeVersionId.value;
     const nextId =
       resumeVersions.value.find((version) => version.id === preferredId)?.id ?? resumeVersions.value[0]?.id ?? null;
@@ -148,10 +210,8 @@ async function refreshResumeVersions(preferredResumeVersionId?: number): Promise
       return;
     }
 
-    truthChecks.value = [];
-    truthCheck.value = null;
-    interviewQuestionResults.value = [];
-    interviewQuestionResult.value = null;
+    clearTruthCheckState();
+    clearInterviewQuestionState();
   } catch (error) {
     truthErrorMessage.value = getFriendlyErrorMessage(error);
   } finally {
@@ -181,7 +241,7 @@ async function loadOptions(): Promise<void> {
     projects.value = loadedProjects;
     jobDescriptions.value = loadedJobDescriptions;
     matchReports.value = loadedMatchReports;
-    resumeVersions.value = loadedResumeVersions;
+    resumeVersions.value = sortByCreatedAtDesc(loadedResumeVersions);
 
     if (loadedMatchReports.length > 0) {
       applyMatchReport(loadedMatchReports[0]);
@@ -191,12 +251,15 @@ async function loadOptions(): Promise<void> {
         loadedJobDescriptions.find((jobDescription) => jobDescription.status === "analyzed")?.id ?? null;
     }
 
-    selectedResumeVersionId.value = loadedResumeVersions[0]?.id ?? null;
+    selectedResumeVersionId.value = resumeVersions.value[0]?.id ?? null;
     if (selectedResumeVersionId.value !== null) {
       await Promise.all([
         loadTruthChecksForVersion(selectedResumeVersionId.value),
         loadInterviewQuestionsForVersion(selectedResumeVersionId.value)
       ]);
+    } else {
+      clearTruthCheckState();
+      clearInterviewQuestionState();
     }
   } catch (error) {
     errorMessage.value = getFriendlyErrorMessage(error);
@@ -254,15 +317,24 @@ async function handleTruthCheck(): Promise<void> {
 
   isCheckingTruth.value = true;
   truthErrorMessage.value = "";
+  const resumeVersionId = selectedResumeVersionId.value;
 
   try {
     const created = await createTruthCheckResult({
-      resume_version_id: selectedResumeVersionId.value
+      resume_version_id: resumeVersionId
     });
-    truthCheck.value = created;
-    truthChecks.value = [created, ...truthChecks.value.filter((item) => item.id !== created.id)];
+    if (selectedResumeVersionId.value === resumeVersionId) {
+      truthChecks.value = sortByCreatedAtDesc([
+        created,
+        ...truthChecks.value.filter((item) => item.id !== created.id)
+      ]);
+      truthCheck.value = truthChecks.value[0] ?? null;
+      await loadTruthChecksForVersion(resumeVersionId, { clearBeforeLoad: false });
+    }
   } catch (error) {
-    truthErrorMessage.value = getFriendlyErrorMessage(error);
+    if (selectedResumeVersionId.value === resumeVersionId) {
+      truthErrorMessage.value = getFriendlyErrorMessage(error);
+    }
   } finally {
     isCheckingTruth.value = false;
   }
@@ -279,18 +351,24 @@ async function handleInterviewQuestions(): Promise<void> {
 
   isGeneratingInterviewQuestions.value = true;
   interviewErrorMessage.value = "";
+  const resumeVersionId = selectedResumeVersionId.value;
 
   try {
     const created = await createInterviewQuestionResult({
-      resume_version_id: selectedResumeVersionId.value
+      resume_version_id: resumeVersionId
     });
-    interviewQuestionResult.value = created;
-    interviewQuestionResults.value = [
-      created,
-      ...interviewQuestionResults.value.filter((item) => item.id !== created.id)
-    ];
+    if (selectedResumeVersionId.value === resumeVersionId) {
+      interviewQuestionResults.value = sortByCreatedAtDesc([
+        created,
+        ...interviewQuestionResults.value.filter((item) => item.id !== created.id)
+      ]);
+      interviewQuestionResult.value = interviewQuestionResults.value[0] ?? null;
+      await loadInterviewQuestionsForVersion(resumeVersionId, { clearBeforeLoad: false });
+    }
   } catch (error) {
-    interviewErrorMessage.value = getFriendlyErrorMessage(error);
+    if (selectedResumeVersionId.value === resumeVersionId) {
+      interviewErrorMessage.value = getFriendlyErrorMessage(error);
+    }
   } finally {
     isGeneratingInterviewQuestions.value = false;
   }
@@ -301,6 +379,8 @@ function handleSelectResumeVersion(version: ResumeVersionRead): void {
   copyMessage.value = "";
   exportMessage.value = "";
   exportErrorMessage.value = "";
+  clearTruthCheckState();
+  clearInterviewQuestionState();
   void Promise.all([loadTruthChecksForVersion(version.id), loadInterviewQuestionsForVersion(version.id)]);
 }
 
@@ -523,6 +603,44 @@ onMounted(() => {
 .versions-page .option-item small {
   color: #667085;
   line-height: 1.5;
+}
+
+.versions-page .version-history-item {
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.versions-page .version-history-item.is-selected {
+  border-color: #243b99;
+  background: #f5f7ff;
+  box-shadow: inset 4px 0 0 #243b99;
+}
+
+.versions-page .version-history-content {
+  display: grid;
+  flex: 1;
+  gap: 5px;
+  min-width: 0;
+}
+
+.versions-page .version-history-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.versions-page .selected-badge {
+  display: inline-flex;
+  border-radius: 999px;
+  background: #243b99;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 5px 8px;
 }
 
 .versions-page .action-row {

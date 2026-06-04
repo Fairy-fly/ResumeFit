@@ -55,12 +55,18 @@ function formatDate(value: string): string {
       <div>
         <h2 id="truth-check-title">真实性风险检测</h2>
         <p class="muted-text">选择一个已生成版本，检查是否存在夸大、缺证据或不确定表达。</p>
+        <p v-if="selectedResumeVersion" class="muted-text">
+          当前版本历史检测 {{ truthChecks.length }} 次，默认展示最近一次。
+        </p>
       </div>
     </div>
 
     <p v-if="!selectedResumeVersion" class="muted-text">请先在上方选择一个已生成的定制简历版本。</p>
     <p v-if="isLoadingTruthChecks" class="muted-text">正在加载历史检测结果...</p>
     <p v-if="truthErrorMessage" class="error-message">{{ truthErrorMessage }}</p>
+    <p v-if="selectedResumeVersion && !isLoadingTruthChecks && !truthCheck" class="muted-text">
+      当前版本暂无历史检测结果。
+    </p>
 
     <LoadingButton
       class="primary-button"
@@ -76,7 +82,10 @@ function formatDate(value: string): string {
       <div class="truth-result-header">
         <div>
           <h3>检测结果</h3>
-          <p class="muted-text">模型：{{ truthCheck.model_name }} · {{ formatDate(truthCheck.created_at) }}</p>
+          <p class="muted-text">
+            历史检测 {{ truthChecks.length }} 次 · 模型：{{ truthCheck.model_name }} ·
+            {{ formatDate(truthCheck.created_at) }}
+          </p>
         </div>
         <span class="risk-badge" :class="`risk-${truthCheck.overall_risk_level}`">
           {{ riskLevelLabels[truthCheck.overall_risk_level] }}

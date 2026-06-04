@@ -62,17 +62,27 @@ function findJobTitle(jobDescriptionId: number | null): string {
         secondary-text="如果刚刚生成过版本，请点击刷新版本。"
         @action="emit('start-generation')"
       />
-      <label v-for="version in resumeVersions" :key="version.id" class="option-item">
+      <label
+        v-for="version in resumeVersions"
+        :key="version.id"
+        class="option-item version-history-item"
+        :class="{ 'is-selected': selectedResumeVersionId === version.id }"
+      >
         <input
           type="radio"
           name="resume-version"
           :checked="selectedResumeVersionId === version.id"
           @change="emit('select', version)"
         />
-        <span>
-          <strong>{{ version.title }}</strong>
-          <small>{{ version.version_type }} · {{ findJobTitle(version.job_description_id) }} · {{ formatDate(version.created_at) }}</small>
-        </span>
+        <div class="version-history-content">
+          <div class="version-history-title-row">
+            <strong>{{ version.title }}</strong>
+            <span v-if="selectedResumeVersionId === version.id" class="selected-badge">当前选中</span>
+          </div>
+          <small>版本 #{{ version.id }} · {{ version.version_type }}</small>
+          <small>岗位：{{ findJobTitle(version.job_description_id) }}</small>
+          <small>创建：{{ formatDate(version.created_at) }}</small>
+        </div>
       </label>
     </section>
 
@@ -80,11 +90,15 @@ function findJobTitle(jobDescriptionId: number | null): string {
       <dl>
         <div>
           <dt>当前版本</dt>
-          <dd>{{ selectedResumeVersion.title }}</dd>
+          <dd>版本 #{{ selectedResumeVersion.id }} · {{ selectedResumeVersion.title }}</dd>
         </div>
         <div>
           <dt>关联岗位</dt>
           <dd>{{ findJobTitle(selectedResumeVersion.job_description_id) }}</dd>
+        </div>
+        <div>
+          <dt>创建时间</dt>
+          <dd>{{ formatDate(selectedResumeVersion.created_at) }}</dd>
         </div>
         <div>
           <dt>历史检测</dt>
