@@ -5,6 +5,7 @@ import { createMatchReport, type MatchReportRead } from "../api/analyses";
 import { listJobDescriptions, type JobDescriptionRead } from "../api/jobDescriptions";
 import { listProjects, type ProjectRead } from "../api/projects";
 import { listResumeProfiles, type ResumeProfileRead } from "../api/resumeProfiles";
+import EmptyState from "../components/common/EmptyState.vue";
 
 const resumes = ref<ResumeProfileRead[]>([]);
 const projects = ref<ProjectRead[]>([]);
@@ -123,7 +124,13 @@ onMounted(() => {
     <form class="analysis-form" @submit.prevent="handleSubmit">
       <section class="selector-section" aria-labelledby="resume-selector-title">
         <h2 id="resume-selector-title">选择通用简历</h2>
-        <p v-if="resumes.length === 0" class="muted-text">还没有可用简历。</p>
+        <EmptyState
+          v-if="!isLoading && resumes.length === 0"
+          title="还没有通用简历"
+          description="先填写一份通用简历，后续才能进行岗位匹配和定制生成。"
+          action-text="去填写通用简历"
+          action-to="/resume"
+        />
         <label v-for="resume in resumes" :key="resume.id" class="option-item">
           <input v-model.number="selectedResumeId" type="radio" name="resume" :value="resume.id" />
           <span>
@@ -135,7 +142,13 @@ onMounted(() => {
 
       <section class="selector-section" aria-labelledby="project-selector-title">
         <h2 id="project-selector-title">选择项目经历</h2>
-        <p v-if="projects.length === 0" class="muted-text">还没有可用项目。</p>
+        <EmptyState
+          v-if="!isLoading && projects.length === 0"
+          title="还没有项目经历"
+          description="添加项目经历后，系统才能结合真实项目判断岗位匹配度。"
+          action-text="去添加项目经历"
+          action-to="/projects"
+        />
         <label v-for="project in projects" :key="project.id" class="option-item">
           <input
             type="checkbox"
@@ -151,7 +164,13 @@ onMounted(() => {
 
       <section class="selector-section" aria-labelledby="job-selector-title">
         <h2 id="job-selector-title">选择已分析 JD</h2>
-        <p v-if="analyzedJobDescriptions.length === 0" class="muted-text">还没有已分析的 JD，请先在 JD 页面完成分析。</p>
+        <EmptyState
+          v-if="!isLoading && analyzedJobDescriptions.length === 0"
+          title="还没有已分析 JD"
+          description="粘贴目标岗位 JD 并完成分析后，才能生成匹配度报告。"
+          action-text="去粘贴并分析 JD"
+          action-to="/jobs"
+        />
         <label v-for="jobDescription in analyzedJobDescriptions" :key="jobDescription.id" class="option-item">
           <input v-model.number="selectedJobDescriptionId" type="radio" name="job-description" :value="jobDescription.id" />
           <span>
@@ -162,6 +181,12 @@ onMounted(() => {
       </section>
 
       <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
+      <p
+        v-if="!isLoading && !report && resumes.length > 0 && projects.length > 0 && analyzedJobDescriptions.length > 0"
+        class="muted-text"
+      >
+        选择一份简历、至少一个项目和一个已分析 JD 后，点击下方按钮生成匹配报告。
+      </p>
 
       <button class="primary-button" type="submit" :disabled="!canGenerate || isGenerating">
         {{ isGenerating ? "生成中..." : "生成匹配报告" }}

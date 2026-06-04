@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from "vue";
 
 import { createProject, listProjects, type ProjectRead } from "../api/projects";
 import DetailModal from "../components/common/DetailModal.vue";
+import EmptyState from "../components/common/EmptyState.vue";
 
 const name = ref("");
 const projectType = ref("");
@@ -11,6 +12,7 @@ const techStackInput = ref("");
 const description = ref("");
 const userContribution = ref("");
 const workUrl = ref("");
+const nameInput = ref<HTMLInputElement | null>(null);
 const projects = ref<ProjectRead[]>([]);
 const selectedProjectDetail = ref<ProjectRead | null>(null);
 const isLoading = ref(false);
@@ -48,6 +50,10 @@ function previewText(value: string): string {
   }
 
   return `${normalized.slice(0, 120)}...`;
+}
+
+function focusProjectForm(): void {
+  nameInput.value?.focus();
 }
 
 async function loadProjects(): Promise<void> {
@@ -110,7 +116,7 @@ onMounted(() => {
     <form class="project-form" @submit.prevent="handleSubmit">
       <label class="field">
         <span>项目名称</span>
-        <input v-model="name" type="text" placeholder="例如：ResumeFit Demo" />
+        <input ref="nameInput" v-model="name" type="text" placeholder="例如：ResumeFit Demo" />
       </label>
 
       <label class="field">
@@ -159,7 +165,14 @@ onMounted(() => {
       </div>
 
       <p v-if="isLoading" class="muted-text">正在加载项目列表...</p>
-      <p v-else-if="projects.length === 0" class="muted-text">还没有保存的项目。</p>
+      <EmptyState
+        v-else-if="projects.length === 0"
+        title="还没有项目经历"
+        description="项目经历会用于证明技能真实性，并辅助生成更有针对性的定制简历。"
+        action-text="添加项目经历"
+        secondary-text="如果已经添加数据，请点击刷新。"
+        @action="focusProjectForm"
+      />
 
       <div v-else class="project-list">
         <article v-for="project in projects" :key="project.id" class="project-item">

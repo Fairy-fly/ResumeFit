@@ -315,6 +315,10 @@ function handleRefreshVersions(): void {
   void refreshResumeVersions();
 }
 
+function handleStartGenerationFromHistory(): void {
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 async function copyMarkdown(): Promise<void> {
   if (!selectedResumeVersion.value) {
     return;
@@ -382,6 +386,7 @@ onMounted(() => {
       :selected-match-report-id="selectedMatchReportId"
       :selected-match-report="selectedMatchReport"
       :can-generate="canGenerate"
+      :is-loading="isLoading"
       :is-generating="isGenerating"
       :error-message="errorMessage"
       @apply-match-report="applyMatchReport"
@@ -407,11 +412,13 @@ onMounted(() => {
       :job-descriptions="jobDescriptions"
       :selected-resume-version-id="selectedResumeVersionId"
       :selected-resume-version="selectedResumeVersion"
+      :is-loading="isLoading || isLoadingVersions"
       :is-loading-versions="isLoadingVersions"
       :truth-checks-count="truthChecks.length"
       :interview-question-results-count="interviewQuestionResults.length"
       @refresh="handleRefreshVersions"
       @select="handleSelectResumeVersion"
+      @start-generation="handleStartGenerationFromHistory"
     />
 
     <TruthCheckPanel

@@ -3,6 +3,7 @@ import type { MatchReportRead } from "../../api/analyses";
 import type { JobDescriptionRead } from "../../api/jobDescriptions";
 import type { ProjectRead } from "../../api/projects";
 import type { ResumeProfileRead } from "../../api/resumeProfiles";
+import EmptyState from "../common/EmptyState.vue";
 
 const props = defineProps<{
   resumes: ResumeProfileRead[];
@@ -15,6 +16,7 @@ const props = defineProps<{
   selectedMatchReportId: number | null;
   selectedMatchReport: MatchReportRead | null;
   canGenerate: boolean;
+  isLoading: boolean;
   isGenerating: boolean;
   errorMessage: string;
 }>();
@@ -72,7 +74,13 @@ function findProjectNames(projectIds: number[]): string {
   <form class="version-form" @submit.prevent="emit('generate')">
     <section class="selector-section" aria-labelledby="match-report-selector-title">
       <h2 id="match-report-selector-title">选择匹配报告</h2>
-      <p v-if="matchReports.length === 0" class="muted-text">还没有可用的匹配报告，请先在分析页面生成报告。</p>
+      <EmptyState
+        v-if="!isLoading && matchReports.length === 0"
+        title="还没有匹配报告"
+        description="先完成简历、项目和岗位 JD 的匹配分析，才能生成定制简历。"
+        action-text="去生成匹配报告"
+        action-to="/analysis"
+      />
       <label v-for="matchReport in matchReports" :key="matchReport.id" class="option-item">
         <input
           type="radio"

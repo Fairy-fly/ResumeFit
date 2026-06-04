@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import type { JobDescriptionRead } from "../../api/jobDescriptions";
 import type { ResumeVersionRead } from "../../api/resumeVersions";
+import EmptyState from "../common/EmptyState.vue";
 
 const props = defineProps<{
   resumeVersions: ResumeVersionRead[];
   jobDescriptions: JobDescriptionRead[];
   selectedResumeVersionId: number | null;
   selectedResumeVersion: ResumeVersionRead | null;
+  isLoading: boolean;
   isLoadingVersions: boolean;
   truthChecksCount: number;
   interviewQuestionResultsCount: number;
@@ -15,6 +17,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: "refresh"): void;
   (event: "select", resumeVersion: ResumeVersionRead): void;
+  (event: "start-generation"): void;
 }>();
 
 function formatDate(value: string): string {
@@ -51,7 +54,14 @@ function findJobTitle(jobDescriptionId: number | null): string {
     </div>
 
     <section class="selector-section" aria-label="选择简历版本">
-      <p v-if="resumeVersions.length === 0" class="muted-text">还没有已生成的定制简历。</p>
+      <EmptyState
+        v-if="!isLoading && resumeVersions.length === 0"
+        title="还没有定制简历版本"
+        description="先在上方选择匹配报告并生成一份定制简历，之后可以在这里查看历史版本。"
+        action-text="选择匹配报告并生成定制简历"
+        secondary-text="如果刚刚生成过版本，请点击刷新版本。"
+        @action="emit('start-generation')"
+      />
       <label v-for="version in resumeVersions" :key="version.id" class="option-item">
         <input
           type="radio"
@@ -86,5 +96,10 @@ function findJobTitle(jobDescriptionId: number | null): string {
         </div>
       </dl>
     </div>
+    <EmptyState
+      v-else-if="!isLoading && resumeVersions.length > 0"
+      title="还没有选中历史版本"
+      description="从上方历史版本列表中选择一个版本，即可查看 Markdown、导出、检测真实性风险和生成面试追问。"
+    />
   </section>
 </template>

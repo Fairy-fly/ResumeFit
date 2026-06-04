@@ -7,9 +7,11 @@ import {
   type ResumeProfileRead
 } from "../api/resumeProfiles";
 import DetailModal from "../components/common/DetailModal.vue";
+import EmptyState from "../components/common/EmptyState.vue";
 
 const title = ref("");
 const rawMarkdown = ref("");
+const titleInput = ref<HTMLInputElement | null>(null);
 const resumes = ref<ResumeProfileRead[]>([]);
 const selectedResumeDetail = ref<ResumeProfileRead | null>(null);
 const isLoading = ref(false);
@@ -32,6 +34,10 @@ function previewResume(content: string): string {
   }
 
   return `${normalized.slice(0, 120)}...`;
+}
+
+function focusResumeForm(): void {
+  titleInput.value?.focus();
 }
 
 async function loadResumes(): Promise<void> {
@@ -84,7 +90,7 @@ onMounted(() => {
     <form class="resume-form" @submit.prevent="handleSubmit">
       <label class="field">
         <span>简历标题</span>
-        <input v-model="title" type="text" placeholder="例如：后端开发通用简历" />
+        <input ref="titleInput" v-model="title" type="text" placeholder="例如：后端开发通用简历" />
       </label>
 
       <label class="field">
@@ -108,7 +114,14 @@ onMounted(() => {
       </div>
 
       <p v-if="isLoading" class="muted-text">正在加载简历列表...</p>
-      <p v-else-if="resumes.length === 0" class="muted-text">还没有保存的简历。</p>
+      <EmptyState
+        v-else-if="resumes.length === 0"
+        title="还没有通用简历"
+        description="先粘贴或输入一份基础简历，后续才能进行岗位匹配和定制生成。"
+        action-text="填写上方表单"
+        secondary-text="如果已经添加数据，请点击刷新。"
+        @action="focusResumeForm"
+      />
 
       <div v-else class="resume-list">
         <article v-for="resume in resumes" :key="resume.id" class="resume-item">

@@ -9,10 +9,12 @@ import {
   type JobDescriptionRead
 } from "../api/jobDescriptions";
 import DetailModal from "../components/common/DetailModal.vue";
+import EmptyState from "../components/common/EmptyState.vue";
 
 const companyName = ref("");
 const jobTitle = ref("");
 const rawText = ref("");
+const companyNameInput = ref<HTMLInputElement | null>(null);
 const jobDescriptions = ref<JobDescriptionRead[]>([]);
 const selectedJobDescription = ref<JobDescriptionRead | null>(null);
 const selectedJobDetail = ref<JobDescriptionRead | null>(null);
@@ -50,6 +52,10 @@ function previewText(value: string): string {
   }
 
   return `${normalized.slice(0, 120)}...`;
+}
+
+function focusJobForm(): void {
+  companyNameInput.value?.focus();
 }
 
 function messageFromError(error: unknown): string {
@@ -112,7 +118,7 @@ onMounted(() => {
     <form class="job-form" @submit.prevent="handleSubmit">
       <label class="field">
         <span>公司名称</span>
-        <input v-model="companyName" type="text" placeholder="例如：示例科技" />
+        <input ref="companyNameInput" v-model="companyName" type="text" placeholder="例如：示例科技" />
       </label>
 
       <label class="field">
@@ -209,7 +215,14 @@ onMounted(() => {
       </div>
 
       <p v-if="isLoading" class="muted-text">正在加载 JD 列表...</p>
-      <p v-else-if="jobDescriptions.length === 0" class="muted-text">还没有保存的 JD。</p>
+      <EmptyState
+        v-else-if="jobDescriptions.length === 0"
+        title="还没有岗位 JD"
+        description="粘贴目标岗位 JD 后，系统才能分析岗位要求和关键词。"
+        action-text="粘贴岗位 JD"
+        secondary-text="如果已经添加数据，请点击刷新。"
+        @action="focusJobForm"
+      />
 
       <div v-else class="job-list">
         <article v-for="jobDescription in jobDescriptions" :key="jobDescription.id" class="job-item">
