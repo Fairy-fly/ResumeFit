@@ -4,6 +4,7 @@ import type { JobDescriptionRead } from "../../api/jobDescriptions";
 import type { ProjectRead } from "../../api/projects";
 import type { ResumeProfileRead } from "../../api/resumeProfiles";
 import EmptyState from "../common/EmptyState.vue";
+import LoadingButton from "../common/LoadingButton.vue";
 
 const props = defineProps<{
   resumes: ResumeProfileRead[];
@@ -171,8 +172,14 @@ function findProjectNames(projectIds: number[]): string {
 
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 
-    <button class="primary-button" type="submit" :disabled="!canGenerate || isGenerating">
-      {{ isGenerating ? "生成中..." : "生成定制简历" }}
-    </button>
+    <LoadingButton
+      class="primary-button"
+      type="submit"
+      :disabled="!canGenerate"
+      :loading="isGenerating"
+      loading-text="正在生成定制简历..."
+    >
+      生成定制简历
+    </LoadingButton>
   </form>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { InterviewQuestionResultRead, QuestionDifficulty } from "../../api/interviewQuestions";
 import type { ResumeVersionRead } from "../../api/resumeVersions";
+import LoadingButton from "../common/LoadingButton.vue";
 
 defineProps<{
   selectedResumeVersion: ResumeVersionRead | null;
@@ -43,14 +44,15 @@ function formatDate(value: string): string {
     <p v-if="isLoadingInterviewQuestions" class="muted-text">正在加载历史追问预测...</p>
     <p v-if="interviewErrorMessage" class="error-message">{{ interviewErrorMessage }}</p>
 
-    <button
+    <LoadingButton
       class="primary-button"
-      type="button"
-      :disabled="!canGenerateInterviewQuestions || isGeneratingInterviewQuestions"
+      :disabled="!canGenerateInterviewQuestions"
+      :loading="isGeneratingInterviewQuestions"
+      loading-text="正在生成面试追问..."
       @click="emit('generate')"
     >
-      {{ isGeneratingInterviewQuestions ? "生成中..." : "生成面试追问" }}
-    </button>
+      生成面试追问
+    </LoadingButton>
 
     <article v-if="interviewQuestionResult" class="interview-result-panel">
       <div class="section-header">

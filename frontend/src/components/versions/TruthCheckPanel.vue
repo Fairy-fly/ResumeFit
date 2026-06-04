@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ResumeVersionRead } from "../../api/resumeVersions";
 import type { EvidenceStatus, RiskLevel, RiskType, TruthCheckResultRead } from "../../api/truthChecks";
+import LoadingButton from "../common/LoadingButton.vue";
 
 defineProps<{
   selectedResumeVersion: ResumeVersionRead | null;
@@ -61,9 +62,15 @@ function formatDate(value: string): string {
     <p v-if="isLoadingTruthChecks" class="muted-text">正在加载历史检测结果...</p>
     <p v-if="truthErrorMessage" class="error-message">{{ truthErrorMessage }}</p>
 
-    <button class="primary-button" type="button" :disabled="!canCheckTruth || isCheckingTruth" @click="emit('check')">
-      {{ isCheckingTruth ? "检测中..." : "检测真实性风险" }}
-    </button>
+    <LoadingButton
+      class="primary-button"
+      :disabled="!canCheckTruth"
+      :loading="isCheckingTruth"
+      loading-text="正在检测真实性风险..."
+      @click="emit('check')"
+    >
+      检测真实性风险
+    </LoadingButton>
 
     <article v-if="truthCheck" class="truth-result-panel">
       <div class="truth-result-header">

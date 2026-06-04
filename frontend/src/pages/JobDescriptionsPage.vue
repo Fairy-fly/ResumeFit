@@ -10,6 +10,7 @@ import {
 } from "../api/jobDescriptions";
 import DetailModal from "../components/common/DetailModal.vue";
 import EmptyState from "../components/common/EmptyState.vue";
+import LoadingButton from "../components/common/LoadingButton.vue";
 
 const companyName = ref("");
 const jobTitle = ref("");
@@ -133,9 +134,15 @@ onMounted(() => {
 
       <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 
-      <button class="primary-button" type="submit" :disabled="!canAnalyze || isAnalyzing">
-        {{ isAnalyzing ? "分析中..." : "保存并分析" }}
-      </button>
+      <LoadingButton
+        class="primary-button"
+        type="submit"
+        :disabled="!canAnalyze"
+        :loading="isAnalyzing"
+        loading-text="正在分析 JD..."
+      >
+        保存并分析
+      </LoadingButton>
     </form>
 
     <section v-if="analysis" class="analysis-section" aria-labelledby="analysis-title">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ResumeVersionRead } from "../../api/resumeVersions";
+import LoadingButton from "../common/LoadingButton.vue";
 
 defineProps<{
   resumeVersion: ResumeVersionRead;
@@ -34,9 +35,14 @@ function formatDate(value: string): string {
       </div>
       <div class="action-row">
         <button class="secondary-button" type="button" @click="emit('copy')">复制 Markdown</button>
-        <button class="secondary-button" type="button" :disabled="isExportingMarkdown" @click="emit('export')">
-          {{ isExportingMarkdown ? "导出中..." : "导出 Markdown" }}
-        </button>
+        <LoadingButton
+          class="secondary-button"
+          :loading="isExportingMarkdown"
+          loading-text="正在导出 Markdown..."
+          @click="emit('export')"
+        >
+          导出 Markdown
+        </LoadingButton>
       </div>
     </div>
 

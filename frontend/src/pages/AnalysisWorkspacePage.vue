@@ -6,6 +6,7 @@ import { listJobDescriptions, type JobDescriptionRead } from "../api/jobDescript
 import { listProjects, type ProjectRead } from "../api/projects";
 import { listResumeProfiles, type ResumeProfileRead } from "../api/resumeProfiles";
 import EmptyState from "../components/common/EmptyState.vue";
+import LoadingButton from "../components/common/LoadingButton.vue";
 
 const resumes = ref<ResumeProfileRead[]>([]);
 const projects = ref<ProjectRead[]>([]);
@@ -188,9 +189,15 @@ onMounted(() => {
         选择一份简历、至少一个项目和一个已分析 JD 后，点击下方按钮生成匹配报告。
       </p>
 
-      <button class="primary-button" type="submit" :disabled="!canGenerate || isGenerating">
-        {{ isGenerating ? "生成中..." : "生成匹配报告" }}
-      </button>
+      <LoadingButton
+        class="primary-button"
+        type="submit"
+        :disabled="!canGenerate"
+        :loading="isGenerating"
+        loading-text="正在生成匹配报告..."
+      >
+        生成匹配报告
+      </LoadingButton>
     </form>
 
     <section v-if="report" class="report-section" aria-labelledby="report-title">
