@@ -11,6 +11,7 @@ import {
 import DetailModal from "../components/common/DetailModal.vue";
 import EmptyState from "../components/common/EmptyState.vue";
 import LoadingButton from "../components/common/LoadingButton.vue";
+import { getFriendlyErrorMessage } from "../utils/errors";
 
 const companyName = ref("");
 const jobTitle = ref("");
@@ -59,14 +60,6 @@ function focusJobForm(): void {
   companyNameInput.value?.focus();
 }
 
-function messageFromError(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return "JD 分析失败，请检查输入内容、AI 配置或后端服务状态。";
-}
-
 async function loadJobDescriptions(): Promise<void> {
   isLoading.value = true;
   errorMessage.value = "";
@@ -74,7 +67,7 @@ async function loadJobDescriptions(): Promise<void> {
   try {
     jobDescriptions.value = await listJobDescriptions();
   } catch (error) {
-    errorMessage.value = messageFromError(error);
+    errorMessage.value = getFriendlyErrorMessage(error);
   } finally {
     isLoading.value = false;
   }
@@ -99,7 +92,7 @@ async function handleSubmit(): Promise<void> {
     analysis.value = await analyzeJobDescription(savedJobDescription.id);
     await loadJobDescriptions();
   } catch (error) {
-    errorMessage.value = messageFromError(error);
+    errorMessage.value = getFriendlyErrorMessage(error);
   } finally {
     isAnalyzing.value = false;
   }

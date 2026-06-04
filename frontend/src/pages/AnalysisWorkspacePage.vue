@@ -7,6 +7,7 @@ import { listProjects, type ProjectRead } from "../api/projects";
 import { listResumeProfiles, type ResumeProfileRead } from "../api/resumeProfiles";
 import EmptyState from "../components/common/EmptyState.vue";
 import LoadingButton from "../components/common/LoadingButton.vue";
+import { getFriendlyErrorMessage } from "../utils/errors";
 
 const resumes = ref<ResumeProfileRead[]>([]);
 const projects = ref<ProjectRead[]>([]);
@@ -46,14 +47,6 @@ function previewText(value: string): string {
   return `${normalized.slice(0, 100)}...`;
 }
 
-function messageFromError(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return "匹配报告生成失败，请检查选择内容、AI 配置或后端服务状态。";
-}
-
 async function loadOptions(): Promise<void> {
   isLoading.value = true;
   errorMessage.value = "";
@@ -71,7 +64,7 @@ async function loadOptions(): Promise<void> {
     selectedJobDescriptionId.value =
       loadedJobDescriptions.find((jobDescription) => jobDescription.status === "analyzed")?.id ?? null;
   } catch (error) {
-    errorMessage.value = messageFromError(error);
+    errorMessage.value = getFriendlyErrorMessage(error);
   } finally {
     isLoading.value = false;
   }
@@ -102,7 +95,7 @@ async function handleSubmit(): Promise<void> {
       job_description_id: selectedJobDescriptionId.value
     });
   } catch (error) {
-    errorMessage.value = messageFromError(error);
+    errorMessage.value = getFriendlyErrorMessage(error);
   } finally {
     isGenerating.value = false;
   }

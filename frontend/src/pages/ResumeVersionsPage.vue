@@ -26,6 +26,7 @@ import ResumeVersionPreview from "../components/versions/ResumeVersionPreview.vu
 import TruthCheckPanel from "../components/versions/TruthCheckPanel.vue";
 import VersionContextSelector from "../components/versions/VersionContextSelector.vue";
 import VersionHistorySelector from "../components/versions/VersionHistorySelector.vue";
+import { getFriendlyErrorMessage } from "../utils/errors";
 
 const resumes = ref<ResumeProfileRead[]>([]);
 const projects = ref<ProjectRead[]>([]);
@@ -80,14 +81,6 @@ const canCheckTruth = computed(() => selectedResumeVersion.value !== null);
 
 const canGenerateInterviewQuestions = computed(() => selectedResumeVersion.value !== null);
 
-function messageFromError(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return "请求失败，请检查选择内容、AI 配置或后端服务状态。";
-}
-
 function applyMatchReport(matchReport: MatchReportRead): void {
   selectedMatchReportId.value = matchReport.id;
   selectedResumeId.value = matchReport.resume_profile_id;
@@ -116,7 +109,7 @@ async function loadTruthChecksForVersion(resumeVersionId: number): Promise<void>
   } catch (error) {
     truthChecks.value = [];
     truthCheck.value = null;
-    truthErrorMessage.value = messageFromError(error);
+    truthErrorMessage.value = getFriendlyErrorMessage(error);
   } finally {
     isLoadingTruthChecks.value = false;
   }
@@ -132,7 +125,7 @@ async function loadInterviewQuestionsForVersion(resumeVersionId: number): Promis
   } catch (error) {
     interviewQuestionResults.value = [];
     interviewQuestionResult.value = null;
-    interviewErrorMessage.value = messageFromError(error);
+    interviewErrorMessage.value = getFriendlyErrorMessage(error);
   } finally {
     isLoadingInterviewQuestions.value = false;
   }
@@ -160,7 +153,7 @@ async function refreshResumeVersions(preferredResumeVersionId?: number): Promise
     interviewQuestionResults.value = [];
     interviewQuestionResult.value = null;
   } catch (error) {
-    truthErrorMessage.value = messageFromError(error);
+    truthErrorMessage.value = getFriendlyErrorMessage(error);
   } finally {
     isLoadingVersions.value = false;
   }
@@ -206,7 +199,7 @@ async function loadOptions(): Promise<void> {
       ]);
     }
   } catch (error) {
-    errorMessage.value = messageFromError(error);
+    errorMessage.value = getFriendlyErrorMessage(error);
   } finally {
     isLoading.value = false;
   }
@@ -248,7 +241,7 @@ async function handleGenerate(): Promise<void> {
     upsertResumeVersion(createdResumeVersion);
     await refreshResumeVersions(createdResumeVersion.id);
   } catch (error) {
-    errorMessage.value = messageFromError(error);
+    errorMessage.value = getFriendlyErrorMessage(error);
   } finally {
     isGenerating.value = false;
   }
@@ -269,7 +262,7 @@ async function handleTruthCheck(): Promise<void> {
     truthCheck.value = created;
     truthChecks.value = [created, ...truthChecks.value.filter((item) => item.id !== created.id)];
   } catch (error) {
-    truthErrorMessage.value = messageFromError(error);
+    truthErrorMessage.value = getFriendlyErrorMessage(error);
   } finally {
     isCheckingTruth.value = false;
   }
@@ -297,7 +290,7 @@ async function handleInterviewQuestions(): Promise<void> {
       ...interviewQuestionResults.value.filter((item) => item.id !== created.id)
     ];
   } catch (error) {
-    interviewErrorMessage.value = messageFromError(error);
+    interviewErrorMessage.value = getFriendlyErrorMessage(error);
   } finally {
     isGeneratingInterviewQuestions.value = false;
   }
@@ -355,7 +348,7 @@ async function exportMarkdown(): Promise<void> {
     URL.revokeObjectURL(url);
     exportMessage.value = "Markdown 文件已开始下载。";
   } catch (error) {
-    exportErrorMessage.value = messageFromError(error);
+    exportErrorMessage.value = getFriendlyErrorMessage(error);
   } finally {
     isExportingMarkdown.value = false;
   }
