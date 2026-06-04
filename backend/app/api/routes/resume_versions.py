@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.ai.client import AIConfigurationError, AIResponseError
@@ -39,3 +39,22 @@ def generate_resume_version(
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except AIResponseError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+
+@router.get("/{resume_version_id}/export/markdown")
+def export_resume_version_markdown(
+    resume_version_id: int,
+    db: Session = Depends(get_db),
+) -> Response:
+    service = ResumeGenerationService(db)
+
+    try:
+        export = service.export_resume_version_markdown(resume_version_id=resume_version_id)
+    except ResumeGenerationNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return Response(
+        content=export.content,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": export.content_disposition},
+    )

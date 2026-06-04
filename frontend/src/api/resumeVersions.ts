@@ -1,5 +1,7 @@
 import { apiGet, apiPost } from "./client";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
 export interface ChangeExplanation {
   section: string;
   reason: string;
@@ -31,10 +33,66 @@ export interface ResumeVersionRead {
   updated_at: string;
 }
 
+export interface ResumeVersionMarkdownDownload {
+  blob: Blob;
+  filename: string;
+}
+
 export function generateResumeVersion(payload: ResumeVersionGenerate): Promise<ResumeVersionRead> {
   return apiPost<ResumeVersionGenerate, ResumeVersionRead>("/resume-versions/generate", payload);
 }
 
 export function listResumeVersions(): Promise<ResumeVersionRead[]> {
   return apiGet<ResumeVersionRead[]>("/resume-versions");
+}
+
+export async function downloadResumeVersionMarkdown(
+  resumeVersionId: number
+): Promise<ResumeVersionMarkdownDownload> {
+  const response = await fetch(`${API_BASE_URL}/resume-versions/${resumeVersionId}/export/markdown`);
+
+  if (!response.ok) {
+    throw await buildDownloadError(response);
+  }
+
+  const blob = await response.blob();
+  return {
+    blob,
+    filename: parseContentDispositionFilename(response.headers.get("Content-Disposition")) ?? fallbackFilename()
+  };
+}
+
+async function buildDownloadError(response: Response): Promise<Error> {
+  try {
+    const payload = (await response.json()) as { detail?: unknown };
+    if (typeof payload.detail === "string" && payload.detail.trim().length > 0) {
+      return new Error(payload.detail);
+    }
+  } catch {
+    // Fall through to the status-only message.
+  }
+
+  return new Error(`Request failed with status ${response.status}`);
+}
+
+function parseContentDispositionFilename(contentDisposition: string | null): string | null {
+  if (!contentDisposition) {
+    return null;
+  }
+
+  const encodedMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (encodedMatch?.[1]) {
+    try {
+      return decodeURIComponent(encodedMatch[1]);
+    } catch {
+      return encodedMatch[1];
+    }
+  }
+
+  const fallbackMatch = contentDisposition.match(/filename="([^"]+)"/i);
+  return fallbackMatch?.[1] ?? null;
+}
+
+function fallbackFilename(): string {
+  return `ResumeFit_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.md`;
 }

@@ -287,6 +287,15 @@ Invoke-RestMethod http://localhost:8000/resume-versions/generate `
 
 返回结果会包含 Markdown 简历正文、修改原因、使用模型、版本类型和关联 ID。接口只生成 Markdown，不会导出 PDF 或 Word。
 
+导出某个简历版本为 Markdown 文件：
+
+```powershell
+Invoke-WebRequest http://localhost:8000/resume-versions/1/export/markdown `
+  -OutFile ResumeFit_export.md
+```
+
+接口会返回 `text/markdown` 内容，并通过 `Content-Disposition` 提供 `.md` 下载文件名。导出只读取已保存的 `ResumeVersion.content_markdown`，不会调用 AI。
+
 ### 页面测试
 
 1. 启动后端。
@@ -297,6 +306,7 @@ Invoke-RestMethod http://localhost:8000/resume-versions/generate `
 6. 点击“生成定制简历”。
 7. 确认页面显示 Markdown 简历和修改原因。
 8. 点击“复制 Markdown”，确认复制成功。
+9. 点击“导出 Markdown”，确认浏览器下载 `.md` 文件。
 
 ### Demo SQLite 重置
 

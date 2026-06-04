@@ -1,4 +1,7 @@
 import json
+import re
+from dataclasses import dataclass
+from urllib.parse import quote
 
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -21,6 +24,38 @@ from app.schemas.resume_version import ResumeVersionGenerate, ResumeVersionRead,
 
 DEFAULT_USER_ID = 1
 RESUME_WRITER_PROMPT = "resume_writer_v1.md"
+MAX_MARKDOWN_FILENAME_STEM_LENGTH = 80
+WINDOWS_RESERVED_FILENAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    "COM1",
+    "COM2",
+    "COM3",
+    "COM4",
+    "COM5",
+    "COM6",
+    "COM7",
+    "COM8",
+    "COM9",
+    "LPT1",
+    "LPT2",
+    "LPT3",
+    "LPT4",
+    "LPT5",
+    "LPT6",
+    "LPT7",
+    "LPT8",
+    "LPT9",
+}
+
+
+@dataclass(frozen=True)
+class MarkdownExport:
+    content: str
+    filename: str
+    content_disposition: str
 
 
 class ResumeGenerationNotFoundError(RuntimeError):
@@ -102,6 +137,25 @@ class ResumeGenerationService:
             for resume_version in self.resume_version_repository.list_by_user(user_id=DEFAULT_USER_ID)
         ]
 
+    def export_resume_version_markdown(self, *, resume_version_id: int) -> MarkdownExport:
+        resume_version = self.resume_version_repository.get_by_id_for_user(
+            resume_version_id=resume_version_id,
+            user_id=DEFAULT_USER_ID,
+        )
+        if resume_version is None:
+            raise ResumeGenerationNotFoundError("Resume version was not found.")
+
+        title_source = self._get_markdown_export_title_source(resume_version)
+        filename = self._build_markdown_export_filename(
+            title_source=title_source,
+            resume_version=resume_version,
+        )
+        return MarkdownExport(
+            content=resume_version.content_markdown,
+            filename=filename,
+            content_disposition=self._build_content_disposition(filename),
+        )
+
     def _get_resume_profile(self, resume_profile_id: int) -> ResumeProfile:
         resume_profile = self.resume_profile_repository.get_by_id_for_user(
             resume_profile_id=resume_profile_id,
@@ -173,6 +227,41 @@ class ResumeGenerationService:
             raise ResumeGenerationValidationError("Match report does not belong to the selected job analysis.")
         if sorted(self._from_json_int_list(match_report.project_ids_json)) != sorted(project_ids):
             raise ResumeGenerationValidationError("Match report does not belong to the selected projects.")
+
+    def _get_markdown_export_title_source(self, resume_version: ResumeVersion) -> str:
+        if resume_version.job_description_id is None:
+            return resume_version.title
+
+        job_description = self.job_description_repository.get_by_id_for_user(
+            job_description_id=resume_version.job_description_id,
+            user_id=DEFAULT_USER_ID,
+        )
+        if job_description is None:
+            return resume_version.title
+        return job_description.title
+
+    def _build_markdown_export_filename(self, *, title_source: str, resume_version: ResumeVersion) -> str:
+        date_text = resume_version.created_at.strftime("%Y%m%d")
+        safe_title = self._sanitize_filename_part(title_source)
+        if not safe_title:
+            safe_title = f"ResumeVersion_{resume_version.id}"
+        return f"ResumeFit_{safe_title}_{date_text}.md"
+
+    def _sanitize_filename_part(self, value: str) -> str:
+        sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", value)
+        sanitized = re.sub(r"\s+", "_", sanitized)
+        sanitized = re.sub(r"_+", "_", sanitized).strip(" ._")
+        if not sanitized:
+            return ""
+        if sanitized.upper() in WINDOWS_RESERVED_FILENAMES:
+            sanitized = f"{sanitized}_"
+        return sanitized[:MAX_MARKDOWN_FILENAME_STEM_LENGTH].rstrip(" ._")
+
+    def _build_content_disposition(self, filename: str) -> str:
+        ascii_fallback = filename.encode("ascii", "ignore").decode("ascii")
+        ascii_fallback = self._sanitize_filename_part(ascii_fallback.removesuffix(".md")) or "ResumeFit"
+        quoted_filename = quote(filename)
+        return f'attachment; filename="{ascii_fallback}.md"; filename*=UTF-8\'\'{quoted_filename}'
 
     def _build_user_prompt(
         self,

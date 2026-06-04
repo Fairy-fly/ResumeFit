@@ -11,7 +11,12 @@ import {
 import { listJobDescriptions, type JobDescriptionRead } from "../api/jobDescriptions";
 import { listProjects, type ProjectRead } from "../api/projects";
 import { listResumeProfiles, type ResumeProfileRead } from "../api/resumeProfiles";
-import { generateResumeVersion, listResumeVersions, type ResumeVersionRead } from "../api/resumeVersions";
+import {
+  downloadResumeVersionMarkdown,
+  generateResumeVersion,
+  listResumeVersions,
+  type ResumeVersionRead
+} from "../api/resumeVersions";
 import {
   createTruthCheckResult,
   listTruthCheckResults,
@@ -43,10 +48,13 @@ const isLoadingInterviewQuestions = ref(false);
 const isGenerating = ref(false);
 const isCheckingTruth = ref(false);
 const isGeneratingInterviewQuestions = ref(false);
+const isExportingMarkdown = ref(false);
 const errorMessage = ref("");
 const truthErrorMessage = ref("");
 const interviewErrorMessage = ref("");
 const copyMessage = ref("");
+const exportMessage = ref("");
+const exportErrorMessage = ref("");
 
 const riskLevelLabels: Record<RiskLevel, string> = {
   low: "低风险",
@@ -157,6 +165,8 @@ function applyMatchReport(matchReport: MatchReportRead): void {
   selectedJobDescriptionId.value = matchReport.job_description_id;
   resumeVersion.value = null;
   copyMessage.value = "";
+  exportMessage.value = "";
+  exportErrorMessage.value = "";
 }
 
 async function loadTruthChecksForVersion(resumeVersionId: number): Promise<void> {
@@ -225,6 +235,8 @@ async function loadOptions(): Promise<void> {
   truthErrorMessage.value = "";
   interviewErrorMessage.value = "";
   copyMessage.value = "";
+  exportMessage.value = "";
+  exportErrorMessage.value = "";
 
   try {
     const [loadedResumes, loadedProjects, loadedJobDescriptions, loadedMatchReports, loadedResumeVersions] =
@@ -286,6 +298,8 @@ async function handleGenerate(): Promise<void> {
   isGenerating.value = true;
   errorMessage.value = "";
   copyMessage.value = "";
+  exportMessage.value = "";
+  exportErrorMessage.value = "";
   resumeVersion.value = null;
 
   try {
@@ -373,6 +387,33 @@ async function copyMarkdown(): Promise<void> {
     copyMessage.value = "Markdown 已复制。";
   } catch {
     copyMessage.value = "复制失败，请手动选择 Markdown 内容复制。";
+  }
+}
+
+async function exportMarkdown(): Promise<void> {
+  if (!resumeVersion.value || isExportingMarkdown.value) {
+    return;
+  }
+
+  isExportingMarkdown.value = true;
+  exportMessage.value = "";
+  exportErrorMessage.value = "";
+
+  try {
+    const { blob, filename } = await downloadResumeVersionMarkdown(resumeVersion.value.id);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    exportMessage.value = "Markdown 文件已开始下载。";
+  } catch (error) {
+    exportErrorMessage.value = messageFromError(error);
+  } finally {
+    isExportingMarkdown.value = false;
   }
 }
 
@@ -486,10 +527,17 @@ onMounted(() => {
             {{ formatDate(resumeVersion.created_at) }}
           </p>
         </div>
-        <button class="secondary-button" type="button" @click="copyMarkdown">复制 Markdown</button>
+        <div class="action-row">
+          <button class="secondary-button" type="button" @click="copyMarkdown">复制 Markdown</button>
+          <button class="secondary-button" type="button" :disabled="isExportingMarkdown" @click="exportMarkdown">
+            {{ isExportingMarkdown ? "导出中..." : "导出 Markdown" }}
+          </button>
+        </div>
       </div>
 
       <p v-if="copyMessage" class="copy-message">{{ copyMessage }}</p>
+      <p v-if="exportMessage" class="copy-message">{{ exportMessage }}</p>
+      <p v-if="exportErrorMessage" class="error-message">{{ exportErrorMessage }}</p>
 
       <article class="markdown-panel">
         <h3>Markdown 简历</h3>
@@ -804,6 +852,13 @@ onMounted(() => {
   line-height: 1.5;
 }
 
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .summary-section,
 .truth-section,
 .interview-section,
@@ -1065,6 +1120,10 @@ onMounted(() => {
   }
 
   .risk-tags {
+    justify-content: flex-start;
+  }
+
+  .action-row {
     justify-content: flex-start;
   }
 

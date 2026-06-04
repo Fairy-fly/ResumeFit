@@ -10,6 +10,7 @@ from app.ai.client import AIClient, AIResponseError
 from app.core.database import Base, get_db
 from app.core.config import settings
 from app.main import app
+from app.models.job_description import JobDescription
 from app.models.resume_version import ResumeVersion
 from app.models.user import User
 
@@ -850,6 +851,62 @@ def test_resume_version_requires_project_ids(client: TestClient) -> None:
     )
 
     assert response.status_code == 422
+
+
+def test_export_resume_version_markdown(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+    resume_version_id = _create_generated_resume_version(client, ids)
+    monkeypatch.setattr(
+        AIClient,
+        "chat_json",
+        lambda self, **_: (_ for _ in ()).throw(AssertionError("Export must not call AI.")),
+    )
+
+    response = client.get(f"/resume-versions/{resume_version_id}/export/markdown")
+
+    assert response.status_code == 200
+    assert response.text == "# Backend Developer\n\n## Projects\n- ResumeFit Demo: Built FastAPI APIs and SQLite persistence."
+    assert "text/markdown" in response.headers["content-type"]
+    content_disposition = response.headers["content-disposition"]
+    assert "attachment" in content_disposition
+    assert "ResumeFit_Backend_Developer_" in content_disposition
+    assert ".md" in content_disposition
+
+
+def test_export_resume_version_markdown_sanitizes_filename(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+    resume_version_id = _create_generated_resume_version(client, ids)
+
+    db_generator = app.dependency_overrides[get_db]()
+    db = next(db_generator)
+    try:
+        job_description = db.get(JobDescription, ids["job_description_id"])
+        assert job_description is not None
+        job_description.title = 'Backend: Dev / API*?'
+        db.commit()
+    finally:
+        db.close()
+        db_generator.close()
+
+    response = client.get(f"/resume-versions/{resume_version_id}/export/markdown")
+
+    assert response.status_code == 200
+    content_disposition = response.headers["content-disposition"]
+    assert "ResumeFit_Backend_Dev_API_" in content_disposition
+    assert "Backend: Dev / API*?" not in content_disposition
+
+
+def test_export_resume_version_markdown_returns_not_found(client: TestClient) -> None:
+    response = client.get("/resume-versions/999/export/markdown")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Resume version was not found."
 
 
 def _create_generated_resume_version(client: TestClient, ids: dict[str, int]) -> int:
