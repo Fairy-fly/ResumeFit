@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     ai_model: str = "deepseek-chat"
     ai_timeout_seconds: int = 60
     cors_origins: str = "http://localhost:5173"
+    jwt_secret_key: str = "change_me_for_local_dev_secret_please_replace"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 1440
 
     model_config = SettingsConfigDict(env_file=("../.env", ".env"), env_file_encoding="utf-8")
 

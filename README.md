@@ -465,10 +465,39 @@ Remove-Item backend/resumefit.db -ErrorAction SilentlyContinue
 - 不要提交真实 `.env` 或真实 `AI_API_KEY`。
 - `.env.example` 中只能保留占位符，例如 `AI_API_KEY=your_deepseek_api_key_here`。
 - AI 调用依赖网络和模型服务，如果现场调用失败，可展示错误提示、Prompt 文件和 mock 测试通过结果。
-- Demo 阶段使用 SQLite 和默认用户 `user_id = 1`，不包含真实登录和权限系统。
+- V0.3 已开始引入后端基础认证；当前业务数据接口仍保留 Demo `user_id = 1`，后续任务会逐步替换为当前登录用户。
 - 如果本地 SQLite 表结构和最新模型不一致，Demo 阶段可以删除 `backend/resumefit.db` 后重启后端重建。
 - 不要提交 `.venv/`、`node_modules/`、`dist/`、`.pytest_cache/`、`__pycache__/` 或 `frontend/tsconfig.tsbuildinfo` 等环境和构建缓存。
 - MVP 不包含 PDF/Word 导出、支付、会员、招聘网站爬取、自动投递、手机 APP 或企业后台。
+
+## V0.3 基础认证说明
+
+V0.3 开始引入后端基础认证能力，当前已提供注册、登录和当前用户接口，为后续把业务数据从 Demo `user_id = 1` 切换到当前登录用户做准备。本轮只完成认证底座，暂不替换现有业务接口中的 Demo 用户逻辑。
+
+后端 `.env` 需要增加：
+
+```text
+JWT_SECRET_KEY=change_me_for_local_dev_secret_please_replace
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+```
+
+请把 `JWT_SECRET_KEY` 改成本地开发用的随机字符串，不要提交真实密钥。
+
+### Auth API
+
+- `POST /auth/register`：注册用户，返回 `access_token`、`token_type` 和 `user`
+- `POST /auth/login`：登录用户，返回 `access_token`、`token_type` 和 `user`
+- `GET /auth/me`：读取当前登录用户，需要请求头 `Authorization: Bearer <token>`
+
+Swagger 测试步骤：
+
+1. 启动后端后打开 `http://localhost:8000/docs`。
+2. 调用 `POST /auth/register`，填写 `email`、`password`、`display_name`。
+3. 复制返回的 `access_token`。
+4. 在 Swagger 右上角点击 Authorize，填写 `Bearer <access_token>`。
+5. 调用 `GET /auth/me`，应返回当前用户信息。
+6. 也可以调用 `POST /auth/login` 验证密码登录流程。
 
 ## MVP 不做什么
 
