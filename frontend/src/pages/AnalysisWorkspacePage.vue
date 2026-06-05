@@ -5,6 +5,7 @@ import { createMatchReport, type MatchReportRead } from "../api/analyses";
 import { listJobDescriptions, type JobDescriptionRead } from "../api/jobDescriptions";
 import { listProjects, type ProjectRead } from "../api/projects";
 import { listResumeProfiles, type ResumeProfileRead } from "../api/resumeProfiles";
+import CollapsibleSection from "../components/common/CollapsibleSection.vue";
 import EmptyState from "../components/common/EmptyState.vue";
 import LoadingButton from "../components/common/LoadingButton.vue";
 import { getFriendlyErrorMessage } from "../utils/errors";
@@ -16,6 +17,9 @@ const selectedResumeId = ref<number | null>(null);
 const selectedProjectIds = ref<number[]>([]);
 const selectedJobDescriptionId = ref<number | null>(null);
 const report = ref<MatchReportRead | null>(null);
+const isResumeSelectorOpen = ref(true);
+const isProjectSelectorOpen = ref(true);
+const isJobSelectorOpen = ref(true);
 const isLoading = ref(false);
 const isGenerating = ref(false);
 const errorMessage = ref("");
@@ -116,8 +120,13 @@ onMounted(() => {
     </div>
 
     <form class="analysis-form" @submit.prevent="handleSubmit">
-      <section class="selector-section" aria-labelledby="resume-selector-title">
-        <h2 id="resume-selector-title">选择通用简历</h2>
+      <CollapsibleSection
+        v-model="isResumeSelectorOpen"
+        class="selector-section"
+        title="选择通用简历"
+        :count="resumes.length"
+        :default-open="true"
+      >
         <EmptyState
           v-if="!isLoading && resumes.length === 0"
           title="还没有通用简历"
@@ -132,10 +141,15 @@ onMounted(() => {
             <small>{{ previewText(resume.raw_markdown) }}</small>
           </span>
         </label>
-      </section>
+      </CollapsibleSection>
 
-      <section class="selector-section" aria-labelledby="project-selector-title">
-        <h2 id="project-selector-title">选择项目经历</h2>
+      <CollapsibleSection
+        v-model="isProjectSelectorOpen"
+        class="selector-section"
+        title="选择项目经历"
+        :count="projects.length"
+        :default-open="true"
+      >
         <EmptyState
           v-if="!isLoading && projects.length === 0"
           title="还没有项目经历"
@@ -154,10 +168,15 @@ onMounted(() => {
             <small>{{ project.project_type }} · {{ project.role }}</small>
           </span>
         </label>
-      </section>
+      </CollapsibleSection>
 
-      <section class="selector-section" aria-labelledby="job-selector-title">
-        <h2 id="job-selector-title">选择已分析 JD</h2>
+      <CollapsibleSection
+        v-model="isJobSelectorOpen"
+        class="selector-section"
+        title="选择已分析 JD"
+        :count="analyzedJobDescriptions.length"
+        :default-open="true"
+      >
         <EmptyState
           v-if="!isLoading && analyzedJobDescriptions.length === 0"
           title="还没有已分析 JD"
@@ -172,7 +191,7 @@ onMounted(() => {
             <small>{{ jobDescription.company_name }} · {{ formatDate(jobDescription.updated_at) }}</small>
           </span>
         </label>
-      </section>
+      </CollapsibleSection>
 
       <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
       <p

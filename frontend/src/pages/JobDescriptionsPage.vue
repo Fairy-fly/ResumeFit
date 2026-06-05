@@ -8,6 +8,7 @@ import {
   type JobAnalysisRead,
   type JobDescriptionRead
 } from "../api/jobDescriptions";
+import CollapsibleSection from "../components/common/CollapsibleSection.vue";
 import DetailModal from "../components/common/DetailModal.vue";
 import EmptyState from "../components/common/EmptyState.vue";
 import LoadingButton from "../components/common/LoadingButton.vue";
@@ -21,6 +22,7 @@ const jobDescriptions = ref<JobDescriptionRead[]>([]);
 const selectedJobDescription = ref<JobDescriptionRead | null>(null);
 const selectedJobDetail = ref<JobDescriptionRead | null>(null);
 const analysis = ref<JobAnalysisRead | null>(null);
+const isJobListOpen = ref(false);
 const isLoading = ref(false);
 const isAnalyzing = ref(false);
 const errorMessage = ref("");
@@ -91,6 +93,7 @@ async function handleSubmit(): Promise<void> {
     selectedJobDescription.value = savedJobDescription;
     analysis.value = await analyzeJobDescription(savedJobDescription.id);
     await loadJobDescriptions();
+    isJobListOpen.value = true;
   } catch (error) {
     errorMessage.value = getFriendlyErrorMessage(error);
   } finally {
@@ -206,42 +209,48 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="job-list-section" aria-labelledby="job-list-title">
-      <div class="section-header">
-        <h2 id="job-list-title">已保存 JD</h2>
-        <button class="secondary-button" type="button" :disabled="isLoading" @click="loadJobDescriptions">
-          {{ isLoading ? "加载中..." : "刷新" }}
-        </button>
-      </div>
+    <section class="job-list-section">
+      <CollapsibleSection
+        v-model="isJobListOpen"
+        title="已保存 JD"
+        :count="jobDescriptions.length"
+        aria-labelledby="job-list-title"
+      >
+        <template #actions>
+          <button class="secondary-button" type="button" :disabled="isLoading" @click="loadJobDescriptions">
+            {{ isLoading ? "加载中..." : "刷新" }}
+          </button>
+        </template>
 
-      <p v-if="isLoading" class="muted-text">正在加载 JD 列表...</p>
-      <EmptyState
-        v-else-if="jobDescriptions.length === 0"
-        title="还没有岗位 JD"
-        description="粘贴目标岗位 JD 后，系统才能分析岗位要求和关键词。"
-        action-text="粘贴岗位 JD"
-        secondary-text="如果已经添加数据，请点击刷新。"
-        @action="focusJobForm"
-      />
+        <p v-if="isLoading" class="muted-text">正在加载 JD 列表...</p>
+        <EmptyState
+          v-else-if="jobDescriptions.length === 0"
+          title="还没有岗位 JD"
+          description="粘贴目标岗位 JD 后，系统才能分析岗位要求和关键词。"
+          action-text="粘贴岗位 JD"
+          secondary-text="如果已经添加数据，请点击刷新。"
+          @action="focusJobForm"
+        />
 
-      <div v-else class="job-list">
-        <article v-for="jobDescription in jobDescriptions" :key="jobDescription.id" class="job-item">
-          <div class="job-item-header">
-            <div>
-              <h3>{{ jobDescription.job_title }}</h3>
-              <p>{{ jobDescription.company_name }}</p>
+        <div v-else class="job-list">
+          <article v-for="jobDescription in jobDescriptions" :key="jobDescription.id" class="job-item">
+            <div class="job-item-header">
+              <div>
+                <h3>{{ jobDescription.job_title }}</h3>
+                <p>{{ jobDescription.company_name }}</p>
+              </div>
+              <div class="job-meta">
+                <span>{{ jobDescription.status }}</span>
+                <time :datetime="jobDescription.created_at">{{ formatDate(jobDescription.created_at) }}</time>
+              </div>
             </div>
-            <div class="job-meta">
-              <span>{{ jobDescription.status }}</span>
-              <time :datetime="jobDescription.created_at">{{ formatDate(jobDescription.created_at) }}</time>
+            <p>{{ previewText(jobDescription.raw_text) }}</p>
+            <div class="job-actions">
+              <button class="secondary-button" type="button" @click="selectedJobDetail = jobDescription">查看详情</button>
             </div>
-          </div>
-          <p>{{ previewText(jobDescription.raw_text) }}</p>
-          <div class="job-actions">
-            <button class="secondary-button" type="button" @click="selectedJobDetail = jobDescription">查看详情</button>
-          </div>
-        </article>
-      </div>
+          </article>
+        </div>
+      </CollapsibleSection>
     </section>
 
     <DetailModal

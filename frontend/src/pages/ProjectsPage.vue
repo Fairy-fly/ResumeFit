@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 
 import { createProject, listProjects, type ProjectRead } from "../api/projects";
+import CollapsibleSection from "../components/common/CollapsibleSection.vue";
 import DetailModal from "../components/common/DetailModal.vue";
 import EmptyState from "../components/common/EmptyState.vue";
 
@@ -15,6 +16,7 @@ const workUrl = ref("");
 const nameInput = ref<HTMLInputElement | null>(null);
 const projects = ref<ProjectRead[]>([]);
 const selectedProjectDetail = ref<ProjectRead | null>(null);
+const isProjectListOpen = ref(false);
 const isLoading = ref(false);
 const isSaving = ref(false);
 const errorMessage = ref("");
@@ -95,6 +97,7 @@ async function handleSubmit(): Promise<void> {
     userContribution.value = "";
     workUrl.value = "";
     await loadProjects();
+    isProjectListOpen.value = true;
   } catch {
     errorMessage.value = "项目保存失败，请检查输入内容或后端服务状态。";
   } finally {
@@ -156,49 +159,55 @@ onMounted(() => {
       </button>
     </form>
 
-    <section class="project-list-section" aria-labelledby="project-list-title">
-      <div class="section-header">
-        <h2 id="project-list-title">已保存项目</h2>
-        <button class="secondary-button" type="button" :disabled="isLoading" @click="loadProjects">
-          {{ isLoading ? "加载中..." : "刷新" }}
-        </button>
-      </div>
+    <section class="project-list-section">
+      <CollapsibleSection
+        v-model="isProjectListOpen"
+        title="已保存项目"
+        :count="projects.length"
+        aria-labelledby="project-list-title"
+      >
+        <template #actions>
+          <button class="secondary-button" type="button" :disabled="isLoading" @click="loadProjects">
+            {{ isLoading ? "加载中..." : "刷新" }}
+          </button>
+        </template>
 
-      <p v-if="isLoading" class="muted-text">正在加载项目列表...</p>
-      <EmptyState
-        v-else-if="projects.length === 0"
-        title="还没有项目经历"
-        description="项目经历会用于证明技能真实性，并辅助生成更有针对性的定制简历。"
-        action-text="添加项目经历"
-        secondary-text="如果已经添加数据，请点击刷新。"
-        @action="focusProjectForm"
-      />
+        <p v-if="isLoading" class="muted-text">正在加载项目列表...</p>
+        <EmptyState
+          v-else-if="projects.length === 0"
+          title="还没有项目经历"
+          description="项目经历会用于证明技能真实性，并辅助生成更有针对性的定制简历。"
+          action-text="添加项目经历"
+          secondary-text="如果已经添加数据，请点击刷新。"
+          @action="focusProjectForm"
+        />
 
-      <div v-else class="project-list">
-        <article v-for="project in projects" :key="project.id" class="project-item">
-          <div class="project-item-header">
-            <div>
-              <h3>{{ project.name }}</h3>
-              <p class="project-type">{{ project.project_type }}</p>
-              <p class="project-role">{{ project.role }}</p>
+        <div v-else class="project-list">
+          <article v-for="project in projects" :key="project.id" class="project-item">
+            <div class="project-item-header">
+              <div>
+                <h3>{{ project.name }}</h3>
+                <p class="project-type">{{ project.project_type }}</p>
+                <p class="project-role">{{ project.role }}</p>
+              </div>
+              <time :datetime="project.created_at">{{ formatDate(project.created_at) }}</time>
             </div>
-            <time :datetime="project.created_at">{{ formatDate(project.created_at) }}</time>
-          </div>
 
-          <div class="tag-list" aria-label="技术栈">
-            <span v-for="tech in project.tech_stack" :key="tech">{{ tech }}</span>
-          </div>
+            <div class="tag-list" aria-label="技术栈">
+              <span v-for="tech in project.tech_stack" :key="tech">{{ tech }}</span>
+            </div>
 
-          <p>{{ previewText(project.description) }}</p>
-          <p>{{ previewText(project.user_contribution) }}</p>
-          <a v-if="project.work_url" :href="project.work_url" target="_blank" rel="noreferrer">
-            {{ project.work_url }}
-          </a>
-          <div class="project-actions">
-            <button class="secondary-button" type="button" @click="selectedProjectDetail = project">查看详情</button>
-          </div>
-        </article>
-      </div>
+            <p>{{ previewText(project.description) }}</p>
+            <p>{{ previewText(project.user_contribution) }}</p>
+            <a v-if="project.work_url" :href="project.work_url" target="_blank" rel="noreferrer">
+              {{ project.work_url }}
+            </a>
+            <div class="project-actions">
+              <button class="secondary-button" type="button" @click="selectedProjectDetail = project">查看详情</button>
+            </div>
+          </article>
+        </div>
+      </CollapsibleSection>
     </section>
 
     <DetailModal

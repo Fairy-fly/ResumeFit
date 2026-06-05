@@ -6,6 +6,7 @@ import {
   listResumeProfiles,
   type ResumeProfileRead
 } from "../api/resumeProfiles";
+import CollapsibleSection from "../components/common/CollapsibleSection.vue";
 import DetailModal from "../components/common/DetailModal.vue";
 import EmptyState from "../components/common/EmptyState.vue";
 
@@ -14,6 +15,7 @@ const rawMarkdown = ref("");
 const titleInput = ref<HTMLInputElement | null>(null);
 const resumes = ref<ResumeProfileRead[]>([]);
 const selectedResumeDetail = ref<ResumeProfileRead | null>(null);
+const isResumeListOpen = ref(false);
 const isLoading = ref(false);
 const isSaving = ref(false);
 const errorMessage = ref("");
@@ -69,6 +71,7 @@ async function handleSubmit(): Promise<void> {
     title.value = "";
     rawMarkdown.value = "";
     await loadResumes();
+    isResumeListOpen.value = true;
   } catch {
     errorMessage.value = "简历保存失败，请检查后端服务是否已启动。";
   } finally {
@@ -105,36 +108,42 @@ onMounted(() => {
       </button>
     </form>
 
-    <section class="resume-list-section" aria-labelledby="resume-list-title">
-      <div class="section-header">
-        <h2 id="resume-list-title">已保存简历</h2>
-        <button class="secondary-button" type="button" :disabled="isLoading" @click="loadResumes">
-          {{ isLoading ? "加载中..." : "刷新" }}
-        </button>
-      </div>
+    <section class="resume-list-section">
+      <CollapsibleSection
+        v-model="isResumeListOpen"
+        title="已保存简历"
+        :count="resumes.length"
+        aria-labelledby="resume-list-title"
+      >
+        <template #actions>
+          <button class="secondary-button" type="button" :disabled="isLoading" @click="loadResumes">
+            {{ isLoading ? "加载中..." : "刷新" }}
+          </button>
+        </template>
 
-      <p v-if="isLoading" class="muted-text">正在加载简历列表...</p>
-      <EmptyState
-        v-else-if="resumes.length === 0"
-        title="还没有通用简历"
-        description="先粘贴或输入一份基础简历，后续才能进行岗位匹配和定制生成。"
-        action-text="填写上方表单"
-        secondary-text="如果已经添加数据，请点击刷新。"
-        @action="focusResumeForm"
-      />
+        <p v-if="isLoading" class="muted-text">正在加载简历列表...</p>
+        <EmptyState
+          v-else-if="resumes.length === 0"
+          title="还没有通用简历"
+          description="先粘贴或输入一份基础简历，后续才能进行岗位匹配和定制生成。"
+          action-text="填写上方表单"
+          secondary-text="如果已经添加数据，请点击刷新。"
+          @action="focusResumeForm"
+        />
 
-      <div v-else class="resume-list">
-        <article v-for="resume in resumes" :key="resume.id" class="resume-item">
-          <div class="resume-item-header">
-            <h3>{{ resume.title }}</h3>
-            <time :datetime="resume.created_at">{{ formatDate(resume.created_at) }}</time>
-          </div>
-          <p>{{ previewResume(resume.raw_markdown) }}</p>
-          <div class="resume-actions">
-            <button class="secondary-button" type="button" @click="selectedResumeDetail = resume">查看详情</button>
-          </div>
-        </article>
-      </div>
+        <div v-else class="resume-list">
+          <article v-for="resume in resumes" :key="resume.id" class="resume-item">
+            <div class="resume-item-header">
+              <h3>{{ resume.title }}</h3>
+              <time :datetime="resume.created_at">{{ formatDate(resume.created_at) }}</time>
+            </div>
+            <p>{{ previewResume(resume.raw_markdown) }}</p>
+            <div class="resume-actions">
+              <button class="secondary-button" type="button" @click="selectedResumeDetail = resume">查看详情</button>
+            </div>
+          </article>
+        </div>
+      </CollapsibleSection>
     </section>
 
     <DetailModal

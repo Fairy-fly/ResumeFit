@@ -56,6 +56,8 @@ const interviewErrorMessage = ref("");
 const copyMessage = ref("");
 const exportMessage = ref("");
 const exportErrorMessage = ref("");
+const isMatchReportSelectorOpen = ref(true);
+const isVersionHistoryOpen = ref(false);
 let truthCheckLoadRequestId = 0;
 let interviewQuestionLoadRequestId = 0;
 
@@ -210,6 +212,8 @@ async function refreshResumeVersions(preferredResumeVersionId?: number): Promise
       return;
     }
 
+    isVersionHistoryOpen.value = false;
+    isMatchReportSelectorOpen.value = true;
     clearTruthCheckState();
     clearInterviewQuestionState();
   } catch (error) {
@@ -242,6 +246,8 @@ async function loadOptions(): Promise<void> {
     jobDescriptions.value = loadedJobDescriptions;
     matchReports.value = loadedMatchReports;
     resumeVersions.value = sortByCreatedAtDesc(loadedResumeVersions);
+    isMatchReportSelectorOpen.value = resumeVersions.value.length === 0;
+    isVersionHistoryOpen.value = resumeVersions.value.length > 0;
 
     if (loadedMatchReports.length > 0) {
       applyMatchReport(loadedMatchReports[0]);
@@ -303,6 +309,7 @@ async function handleGenerate(): Promise<void> {
     });
     upsertResumeVersion(createdResumeVersion);
     await refreshResumeVersions(createdResumeVersion.id);
+    isVersionHistoryOpen.value = true;
   } catch (error) {
     errorMessage.value = getFriendlyErrorMessage(error);
   } finally {
@@ -389,6 +396,7 @@ function handleRefreshVersions(): void {
 }
 
 function handleStartGenerationFromHistory(): void {
+  isMatchReportSelectorOpen.value = true;
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -462,6 +470,7 @@ onMounted(() => {
       :is-loading="isLoading"
       :is-generating="isGenerating"
       :error-message="errorMessage"
+      v-model:match-report-selector-open="isMatchReportSelectorOpen"
       @apply-match-report="applyMatchReport"
       @select-resume="selectedResumeId = $event"
       @toggle-project="toggleProject"
@@ -489,6 +498,7 @@ onMounted(() => {
       :is-loading-versions="isLoadingVersions"
       :truth-checks-count="truthChecks.length"
       :interview-question-results-count="interviewQuestionResults.length"
+      v-model:is-open="isVersionHistoryOpen"
       @refresh="handleRefreshVersions"
       @select="handleSelectResumeVersion"
       @start-generation="handleStartGenerationFromHistory"
@@ -739,6 +749,28 @@ onMounted(() => {
   gap: 6px;
 }
 
+.versions-page .explanation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.versions-page .explanation-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #edf0f4;
+  border-radius: 8px;
+  background: #fbfcff;
+  padding: 14px;
+}
+
+.versions-page .explanation-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .versions-page .explanation-title {
   display: flex;
   align-items: center;
@@ -758,6 +790,15 @@ onMounted(() => {
 .versions-page .explanation-title span {
   background: #fff4e5;
   color: #9a4c00;
+}
+
+.versions-page .explanation-tag {
+  border-radius: 999px;
+  background: #fff4e5;
+  color: #9a4c00;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 8px;
 }
 
 .versions-page .truth-result-header h3,
@@ -923,6 +964,10 @@ onMounted(() => {
   }
 
   .versions-page .question-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .versions-page .explanation-grid {
     grid-template-columns: 1fr;
   }
 }

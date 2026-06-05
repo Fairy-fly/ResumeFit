@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { JobDescriptionRead } from "../../api/jobDescriptions";
 import type { ResumeVersionRead } from "../../api/resumeVersions";
+import CollapsibleSection from "../common/CollapsibleSection.vue";
 import EmptyState from "../common/EmptyState.vue";
 
 const props = defineProps<{
@@ -12,12 +13,14 @@ const props = defineProps<{
   isLoadingVersions: boolean;
   truthChecksCount: number;
   interviewQuestionResultsCount: number;
+  isOpen: boolean;
 }>();
 
 const emit = defineEmits<{
   (event: "refresh"): void;
   (event: "select", resumeVersion: ResumeVersionRead): void;
   (event: "start-generation"): void;
+  (event: "update:isOpen", value: boolean): void;
 }>();
 
 function formatDate(value: string): string {
@@ -42,18 +45,20 @@ function findJobTitle(jobDescriptionId: number | null): string {
 </script>
 
 <template>
-  <section class="truth-section" aria-labelledby="resume-version-selector-title">
-    <div class="section-header">
-      <div>
-        <h2 id="resume-version-selector-title">历史版本选择</h2>
-        <p class="muted-text">选择一个已生成版本，用于真实性风险检测和面试追问预测。</p>
-      </div>
-      <button class="secondary-button" type="button" :disabled="isLoadingVersions" @click="emit('refresh')">
-        {{ isLoadingVersions ? "加载中..." : "刷新版本" }}
-      </button>
-    </div>
-
-    <section class="selector-section" aria-label="选择简历版本">
+  <section class="truth-section">
+    <CollapsibleSection
+      class="selector-section"
+      title="历史版本选择"
+      :count="resumeVersions.length"
+      :model-value="isOpen"
+      @update:model-value="emit('update:isOpen', $event)"
+    >
+      <template #actions>
+        <button class="secondary-button" type="button" :disabled="isLoadingVersions" @click="emit('refresh')">
+          {{ isLoadingVersions ? "加载中..." : "刷新版本" }}
+        </button>
+      </template>
+      <p class="muted-text">选择一个已生成版本，用于真实性风险检测和面试追问预测。</p>
       <EmptyState
         v-if="!isLoading && resumeVersions.length === 0"
         title="还没有定制简历版本"
@@ -84,7 +89,7 @@ function findJobTitle(jobDescriptionId: number | null): string {
           <small>创建：{{ formatDate(version.created_at) }}</small>
         </div>
       </label>
-    </section>
+    </CollapsibleSection>
 
     <div v-if="selectedResumeVersion" class="summary-section">
       <dl>

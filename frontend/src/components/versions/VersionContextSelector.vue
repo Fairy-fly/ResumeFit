@@ -3,6 +3,7 @@ import type { MatchReportRead } from "../../api/analyses";
 import type { JobDescriptionRead } from "../../api/jobDescriptions";
 import type { ProjectRead } from "../../api/projects";
 import type { ResumeProfileRead } from "../../api/resumeProfiles";
+import CollapsibleSection from "../common/CollapsibleSection.vue";
 import EmptyState from "../common/EmptyState.vue";
 import LoadingButton from "../common/LoadingButton.vue";
 
@@ -20,6 +21,7 @@ const props = defineProps<{
   isLoading: boolean;
   isGenerating: boolean;
   errorMessage: string;
+  matchReportSelectorOpen: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -28,6 +30,7 @@ const emit = defineEmits<{
   (event: "toggle-project", projectId: number): void;
   (event: "select-job-description", jobDescriptionId: number): void;
   (event: "generate"): void;
+  (event: "update:matchReportSelectorOpen", value: boolean): void;
 }>();
 
 function formatDate(value: string): string {
@@ -73,8 +76,13 @@ function findProjectNames(projectIds: number[]): string {
 
 <template>
   <form class="version-form" @submit.prevent="emit('generate')">
-    <section class="selector-section" aria-labelledby="match-report-selector-title">
-      <h2 id="match-report-selector-title">选择匹配报告</h2>
+    <CollapsibleSection
+      class="selector-section"
+      title="选择匹配报告"
+      :count="matchReports.length"
+      :model-value="matchReportSelectorOpen"
+      @update:model-value="emit('update:matchReportSelectorOpen', $event)"
+    >
       <EmptyState
         v-if="!isLoading && matchReports.length === 0"
         title="还没有匹配报告"
@@ -98,7 +106,7 @@ function findProjectNames(projectIds: number[]): string {
           </small>
         </span>
       </label>
-    </section>
+    </CollapsibleSection>
 
     <section class="selector-section" aria-labelledby="resume-selector-title">
       <h2 id="resume-selector-title">通用简历</h2>

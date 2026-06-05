@@ -57,17 +57,21 @@ function formatDate(value: string): string {
 
     <article class="explanation-panel">
       <h3>修改原因</h3>
-      <ul>
-        <li v-for="item in resumeVersion.change_explanations" :key="`${item.section}-${item.reason}`">
-          <div class="explanation-title">
+      <div v-if="resumeVersion.change_explanations.length > 0" class="explanation-grid">
+        <article
+          v-for="item in resumeVersion.change_explanations"
+          :key="`${item.section}-${item.reason}`"
+          class="explanation-card"
+        >
+          <div class="explanation-card-header">
             <strong>{{ item.section }}</strong>
-            <span v-if="item.uncertain">uncertain</span>
+            <span v-if="item.uncertain" class="explanation-tag">uncertain</span>
           </div>
           <p>{{ item.reason }}</p>
           <small>来源：{{ item.source }}</small>
-        </li>
-        <li v-if="resumeVersion.change_explanations.length === 0">暂无修改说明。</li>
-      </ul>
+        </article>
+      </div>
+      <p v-else class="muted-text">暂无修改说明。</p>
     </article>
   </section>
 </template>
