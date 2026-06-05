@@ -1,6 +1,7 @@
 import { ApiRequestError } from "../utils/errors";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const ACCESS_TOKEN_STORAGE_KEY = "resumefit_access_token";
 
 async function parseJson<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
@@ -26,7 +27,9 @@ async function buildError(response: Response): Promise<Error> {
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`);
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: buildAuthHeaders()
+  });
 
   if (!response.ok) {
     throw await buildError(response);
@@ -39,7 +42,8 @@ export async function apiPost<TRequest, TResponse>(path: string, payload: TReque
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...buildAuthHeaders()
     },
     body: JSON.stringify(payload)
   });
@@ -49,4 +53,9 @@ export async function apiPost<TRequest, TResponse>(path: string, payload: TReque
   }
 
   return parseJson<TResponse>(response);
+}
+
+export function buildAuthHeaders(): Record<string, string> {
+  const token = window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }

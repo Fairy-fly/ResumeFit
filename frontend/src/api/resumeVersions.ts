@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "./client";
+import { apiGet, apiPost, buildAuthHeaders } from "./client";
 import { ApiRequestError } from "../utils/errors";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -50,7 +50,9 @@ export function listResumeVersions(): Promise<ResumeVersionRead[]> {
 export async function downloadResumeVersionMarkdown(
   resumeVersionId: number
 ): Promise<ResumeVersionMarkdownDownload> {
-  const response = await fetch(`${API_BASE_URL}/resume-versions/${resumeVersionId}/export/markdown`);
+  const response = await fetch(`${API_BASE_URL}/resume-versions/${resumeVersionId}/export/markdown`, {
+    headers: buildAuthHeaders()
+  });
 
   if (!response.ok) {
     throw await buildDownloadError(response);
