@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref } from "vue";
+
 import type { MatchReportRead } from "../../api/analyses";
 import type { JobDescriptionRead } from "../../api/jobDescriptions";
 import type { ProjectRead } from "../../api/projects";
@@ -32,6 +34,8 @@ const emit = defineEmits<{
   (event: "generate"): void;
   (event: "update:matchReportSelectorOpen", value: boolean): void;
 }>();
+
+const isGenerationContextOpen = ref(false);
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("zh-CN", {
@@ -108,57 +112,63 @@ function findProjectNames(projectIds: number[]): string {
       </label>
     </CollapsibleSection>
 
-    <section class="selector-section" aria-labelledby="resume-selector-title">
-      <h2 id="resume-selector-title">通用简历</h2>
-      <p v-if="resumes.length === 0" class="muted-text">还没有可用的通用简历。</p>
-      <label v-for="resume in resumes" :key="resume.id" class="option-item">
-        <input
-          type="radio"
-          name="resume"
-          :value="resume.id"
-          :checked="selectedResumeId === resume.id"
-          @change="emit('select-resume', resume.id)"
-        />
-        <span>
-          <strong>{{ resume.title }}</strong>
-          <small>{{ previewText(resume.raw_markdown) }}</small>
-        </span>
-      </label>
-    </section>
+    <CollapsibleSection
+      v-model="isGenerationContextOpen"
+      class="selector-section"
+      title="生成上下文 · 通用简历 / 项目经历 / 已分析 JD"
+    >
+      <section class="context-selector-group" aria-label="通用简历">
+        <h3>通用简历</h3>
+        <p v-if="resumes.length === 0" class="muted-text">还没有可用的通用简历。</p>
+        <label v-for="resume in resumes" :key="resume.id" class="option-item">
+          <input
+            type="radio"
+            name="resume"
+            :value="resume.id"
+            :checked="selectedResumeId === resume.id"
+            @change="emit('select-resume', resume.id)"
+          />
+          <span>
+            <strong>{{ resume.title }}</strong>
+            <small>{{ previewText(resume.raw_markdown) }}</small>
+          </span>
+        </label>
+      </section>
 
-    <section class="selector-section" aria-labelledby="project-selector-title">
-      <h2 id="project-selector-title">项目经历</h2>
-      <p v-if="projects.length === 0" class="muted-text">还没有可用的项目经历。</p>
-      <label v-for="project in projects" :key="project.id" class="option-item">
-        <input
-          type="checkbox"
-          :checked="selectedProjectIds.includes(project.id)"
-          @change="emit('toggle-project', project.id)"
-        />
-        <span>
-          <strong>{{ project.name }}</strong>
-          <small>{{ project.project_type }} · {{ project.role }}</small>
-        </span>
-      </label>
-    </section>
+      <section class="context-selector-group" aria-label="项目经历">
+        <h3>项目经历</h3>
+        <p v-if="projects.length === 0" class="muted-text">还没有可用的项目经历。</p>
+        <label v-for="project in projects" :key="project.id" class="option-item">
+          <input
+            type="checkbox"
+            :checked="selectedProjectIds.includes(project.id)"
+            @change="emit('toggle-project', project.id)"
+          />
+          <span>
+            <strong>{{ project.name }}</strong>
+            <small>{{ project.project_type }} · {{ project.role }}</small>
+          </span>
+        </label>
+      </section>
 
-    <section class="selector-section" aria-labelledby="job-selector-title">
-      <h2 id="job-selector-title">已分析 JD</h2>
-      <p v-if="analyzedJobDescriptions.length === 0" class="muted-text">还没有已分析的 JD，请先在 JD 页面完成分析。</p>
-      <label v-for="jobDescription in analyzedJobDescriptions" :key="jobDescription.id" class="option-item">
-        <input
-          type="radio"
-          name="job-description"
-          :value="jobDescription.id"
-          :checked="selectedJobDescriptionId === jobDescription.id"
-          @change="emit('select-job-description', jobDescription.id)"
-        />
-        <span>
-          <strong>{{ jobDescription.job_title }}</strong>
-          <small>{{ jobDescription.company_name }} · {{ formatDate(jobDescription.updated_at) }}</small>
-        </span>
-      </label>
-    </section>
+      <section class="context-selector-group" aria-label="已分析 JD">
+        <h3>已分析 JD</h3>
+        <p v-if="analyzedJobDescriptions.length === 0" class="muted-text">还没有已分析的 JD，请先在 JD 页面完成分析。</p>
+        <label v-for="jobDescription in analyzedJobDescriptions" :key="jobDescription.id" class="option-item">
+          <input
+            type="radio"
+            name="job-description"
+            :value="jobDescription.id"
+            :checked="selectedJobDescriptionId === jobDescription.id"
+            @change="emit('select-job-description', jobDescription.id)"
+          />
+          <span>
+            <strong>{{ jobDescription.job_title }}</strong>
+            <small>{{ jobDescription.company_name }} · {{ formatDate(jobDescription.updated_at) }}</small>
+          </span>
+        </label>
+      </section>
+    </CollapsibleSection>
 
     <section v-if="selectedMatchReport" class="summary-section" aria-labelledby="selected-context-title">
       <h2 id="selected-context-title">当前上下文</h2>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { InterviewQuestionResultRead, QuestionDifficulty } from "../../api/interviewQuestions";
 import type { ResumeVersionRead } from "../../api/resumeVersions";
+import CollapsibleSection from "../common/CollapsibleSection.vue";
 import LoadingButton from "../common/LoadingButton.vue";
 
 defineProps<{
@@ -11,10 +12,12 @@ defineProps<{
   isGeneratingInterviewQuestions: boolean;
   interviewErrorMessage: string;
   canGenerateInterviewQuestions: boolean;
+  isOpen: boolean;
 }>();
 
 const emit = defineEmits<{
   (event: "generate"): void;
+  (event: "update:isOpen", value: boolean): void;
 }>();
 
 const difficultyLabels: Record<QuestionDifficulty, string> = {
@@ -32,16 +35,17 @@ function formatDate(value: string): string {
 </script>
 
 <template>
-  <section class="interview-section" aria-labelledby="interview-question-title">
-    <div class="section-header">
-      <div>
-        <h2 id="interview-question-title">面试追问预测</h2>
-        <p class="muted-text">基于当前选择的简历版本、JD、项目和真实性风险，生成保守可解释的追问准备。</p>
-        <p v-if="selectedResumeVersion" class="muted-text">
-          当前版本历史预测 {{ interviewQuestionResults.length }} 次，默认展示最近一次。
-        </p>
-      </div>
-    </div>
+  <CollapsibleSection
+    class="interview-section"
+    title="面试追问预测"
+    :count="interviewQuestionResults.length"
+    :model-value="isOpen"
+    @update:model-value="emit('update:isOpen', $event)"
+  >
+    <p class="muted-text">基于当前选择的简历版本、JD、项目和真实性风险，生成保守可解释的追问准备。</p>
+    <p v-if="selectedResumeVersion" class="muted-text">
+      当前版本历史预测 {{ interviewQuestionResults.length }} 次，默认展示最近一次。
+    </p>
 
     <p v-if="!selectedResumeVersion" class="muted-text">请先在上方选择一个已生成的定制简历版本。</p>
     <p v-if="isLoadingInterviewQuestions" class="muted-text">正在加载历史追问预测...</p>
@@ -111,5 +115,5 @@ function formatDate(value: string): string {
         </article>
       </section>
     </article>
-  </section>
+  </CollapsibleSection>
 </template>

@@ -58,6 +58,8 @@ const exportMessage = ref("");
 const exportErrorMessage = ref("");
 const isMatchReportSelectorOpen = ref(true);
 const isVersionHistoryOpen = ref(false);
+const isTruthCheckPanelOpen = ref(false);
+const isInterviewQuestionPanelOpen = ref(false);
 let truthCheckLoadRequestId = 0;
 let interviewQuestionLoadRequestId = 0;
 
@@ -96,6 +98,7 @@ function clearTruthCheckState(): void {
   truthChecks.value = [];
   truthCheck.value = null;
   isLoadingTruthChecks.value = false;
+  isTruthCheckPanelOpen.value = false;
 }
 
 function clearInterviewQuestionState(): void {
@@ -103,6 +106,7 @@ function clearInterviewQuestionState(): void {
   interviewQuestionResults.value = [];
   interviewQuestionResult.value = null;
   isLoadingInterviewQuestions.value = false;
+  isInterviewQuestionPanelOpen.value = false;
 }
 
 function applyMatchReport(matchReport: MatchReportRead): void {
@@ -143,6 +147,7 @@ async function loadTruthChecksForVersion(
     }
     truthChecks.value = loadedTruthChecks;
     truthCheck.value = loadedTruthChecks[0] ?? null;
+    isTruthCheckPanelOpen.value = loadedTruthChecks.length > 0;
   } catch (error) {
     if (requestId !== truthCheckLoadRequestId || selectedResumeVersionId.value !== resumeVersionId) {
       return;
@@ -150,6 +155,7 @@ async function loadTruthChecksForVersion(
     if (shouldClearBeforeLoad) {
       truthChecks.value = [];
       truthCheck.value = null;
+      isTruthCheckPanelOpen.value = false;
     }
     truthErrorMessage.value = getFriendlyErrorMessage(error);
   } finally {
@@ -179,6 +185,7 @@ async function loadInterviewQuestionsForVersion(
     }
     interviewQuestionResults.value = loadedInterviewQuestionResults;
     interviewQuestionResult.value = loadedInterviewQuestionResults[0] ?? null;
+    isInterviewQuestionPanelOpen.value = loadedInterviewQuestionResults.length > 0;
   } catch (error) {
     if (requestId !== interviewQuestionLoadRequestId || selectedResumeVersionId.value !== resumeVersionId) {
       return;
@@ -186,6 +193,7 @@ async function loadInterviewQuestionsForVersion(
     if (shouldClearBeforeLoad) {
       interviewQuestionResults.value = [];
       interviewQuestionResult.value = null;
+      isInterviewQuestionPanelOpen.value = false;
     }
     interviewErrorMessage.value = getFriendlyErrorMessage(error);
   } finally {
@@ -336,6 +344,7 @@ async function handleTruthCheck(): Promise<void> {
         ...truthChecks.value.filter((item) => item.id !== created.id)
       ]);
       truthCheck.value = truthChecks.value[0] ?? null;
+      isTruthCheckPanelOpen.value = true;
       await loadTruthChecksForVersion(resumeVersionId, { clearBeforeLoad: false });
     }
   } catch (error) {
@@ -370,6 +379,7 @@ async function handleInterviewQuestions(): Promise<void> {
         ...interviewQuestionResults.value.filter((item) => item.id !== created.id)
       ]);
       interviewQuestionResult.value = interviewQuestionResults.value[0] ?? null;
+      isInterviewQuestionPanelOpen.value = true;
       await loadInterviewQuestionsForVersion(resumeVersionId, { clearBeforeLoad: false });
     }
   } catch (error) {
@@ -480,6 +490,7 @@ onMounted(() => {
 
     <ResumeVersionPreview
       v-if="selectedResumeVersion"
+      :key="selectedResumeVersion.id"
       :resume-version="selectedResumeVersion"
       :is-exporting-markdown="isExportingMarkdown"
       :copy-message="copyMessage"
@@ -512,6 +523,7 @@ onMounted(() => {
       :is-checking-truth="isCheckingTruth"
       :truth-error-message="truthErrorMessage"
       :can-check-truth="canCheckTruth"
+      v-model:is-open="isTruthCheckPanelOpen"
       @check="handleTruthCheck"
     />
 
@@ -523,6 +535,7 @@ onMounted(() => {
       :is-generating-interview-questions="isGeneratingInterviewQuestions"
       :interview-error-message="interviewErrorMessage"
       :can-generate-interview-questions="canGenerateInterviewQuestions"
+      v-model:is-open="isInterviewQuestionPanelOpen"
       @generate="handleInterviewQuestions"
     />
   </section>
@@ -586,6 +599,17 @@ onMounted(() => {
 .versions-page .selector-section h3,
 .versions-page .truth-result-panel h3,
 .versions-page .interview-result-panel h3 {
+  font-size: 18px;
+}
+
+.versions-page .context-selector-group {
+  display: grid;
+  gap: 12px;
+}
+
+.versions-page .context-selector-group h3 {
+  margin: 0;
+  color: #1d1f24;
   font-size: 18px;
 }
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ResumeVersionRead } from "../../api/resumeVersions";
 import type { EvidenceStatus, RiskLevel, RiskType, TruthCheckResultRead } from "../../api/truthChecks";
+import CollapsibleSection from "../common/CollapsibleSection.vue";
 import LoadingButton from "../common/LoadingButton.vue";
 
 defineProps<{
@@ -11,10 +12,12 @@ defineProps<{
   isCheckingTruth: boolean;
   truthErrorMessage: string;
   canCheckTruth: boolean;
+  isOpen: boolean;
 }>();
 
 const emit = defineEmits<{
   (event: "check"): void;
+  (event: "update:isOpen", value: boolean): void;
 }>();
 
 const riskLevelLabels: Record<RiskLevel, string> = {
@@ -50,16 +53,17 @@ function formatDate(value: string): string {
 </script>
 
 <template>
-  <section class="truth-section" aria-labelledby="truth-check-title">
-    <div class="section-header">
-      <div>
-        <h2 id="truth-check-title">真实性风险检测</h2>
-        <p class="muted-text">选择一个已生成版本，检查是否存在夸大、缺证据或不确定表达。</p>
-        <p v-if="selectedResumeVersion" class="muted-text">
-          当前版本历史检测 {{ truthChecks.length }} 次，默认展示最近一次。
-        </p>
-      </div>
-    </div>
+  <CollapsibleSection
+    class="truth-section"
+    title="真实性风险检测"
+    :count="truthChecks.length"
+    :model-value="isOpen"
+    @update:model-value="emit('update:isOpen', $event)"
+  >
+    <p class="muted-text">选择一个已生成版本，检查是否存在夸大、缺证据或不确定表达。</p>
+    <p v-if="selectedResumeVersion" class="muted-text">
+      当前版本历史检测 {{ truthChecks.length }} 次，默认展示最近一次。
+    </p>
 
     <p v-if="!selectedResumeVersion" class="muted-text">请先在上方选择一个已生成的定制简历版本。</p>
     <p v-if="isLoadingTruthChecks" class="muted-text">正在加载历史检测结果...</p>
@@ -140,5 +144,5 @@ function formatDate(value: string): string {
         </section>
       </div>
     </article>
-  </section>
+  </CollapsibleSection>
 </template>
