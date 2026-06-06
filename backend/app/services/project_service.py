@@ -6,17 +6,15 @@ from app.models.project import Project
 from app.repositories.project_repository import ProjectRepository
 from app.schemas.project import ProjectCreate, ProjectRead
 
-DEFAULT_USER_ID = 1
-
 
 class ProjectService:
     def __init__(self, db: Session) -> None:
         self.repository = ProjectRepository(db)
 
-    def create_project(self, payload: ProjectCreate) -> ProjectRead:
+    def create_project(self, payload: ProjectCreate, *, user_id: int) -> ProjectRead:
         evidence_links = [payload.work_url] if payload.work_url else []
         project = self.repository.create(
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
             name=payload.name,
             project_type=payload.project_type,
             role=payload.role,
@@ -27,8 +25,8 @@ class ProjectService:
         )
         return self._to_read_model(project)
 
-    def list_projects(self) -> list[ProjectRead]:
-        return [self._to_read_model(project) for project in self.repository.list_by_user(user_id=DEFAULT_USER_ID)]
+    def list_projects(self, *, user_id: int) -> list[ProjectRead]:
+        return [self._to_read_model(project) for project in self.repository.list_by_user(user_id=user_id)]
 
     def _to_read_model(self, project: Project) -> ProjectRead:
         return ProjectRead(

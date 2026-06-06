@@ -9,14 +9,18 @@ from sqlalchemy.pool import StaticPool
 from app.ai.client import AIClient, AIResponseError
 from app.core.database import Base, get_db
 from app.core.config import settings
+from app.core.security import create_access_token
 from app.main import app
 from app.models.job_description import JobDescription
 from app.models.resume_version import ResumeVersion
 from app.models.user import User
 
 
-@pytest.fixture()
-def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
+def _build_test_client(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    authenticated: bool,
+) -> Generator[TestClient, None, None]:
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -40,9 +44,34 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     app.dependency_overrides[get_db] = override_get_db
 
     with TestClient(app) as test_client:
+        if authenticated:
+            test_client.headers.update({"Authorization": f"Bearer {create_access_token(user_id=1)}"})
         yield test_client
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def client(monkeypatch: pytest.MonkeyPatch) -> Generator[TestClient, None, None]:
+    yield from _build_test_client(monkeypatch, authenticated=True)
+
+
+@pytest.fixture()
+def anonymous_client(monkeypatch: pytest.MonkeyPatch) -> Generator[TestClient, None, None]:
+    yield from _build_test_client(monkeypatch, authenticated=False)
+
+
+def _register_test_user(client: TestClient, *, email: str) -> str:
+    response = client.post(
+        "/auth/register",
+        json={"email": email, "password": "password123", "display_name": email},
+    )
+    assert response.status_code == 201
+    return str(response.json()["access_token"])
+
+
+def _auth_headers(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
 
 
 def test_health_check(client: TestClient) -> None:
@@ -70,6 +99,12 @@ def test_resume_profiles_start_empty(client: TestClient) -> None:
     assert response.json() == []
 
 
+def test_resume_profiles_require_login(anonymous_client: TestClient) -> None:
+    response = anonymous_client.get("/resume-profiles")
+
+    assert response.status_code == 401
+
+
 def test_create_and_list_resume_profile(client: TestClient) -> None:
     payload = {
         "title": "后端开发通用简历",
@@ -93,6 +128,24 @@ def test_create_and_list_resume_profile(client: TestClient) -> None:
     resumes = list_response.json()
     assert len(resumes) == 1
     assert resumes[0]["id"] == created["id"]
+
+
+def test_resume_profiles_are_isolated_by_user(client: TestClient) -> None:
+    user_a_token = _register_test_user(client, email="resume-a@example.com")
+    user_b_token = _register_test_user(client, email="resume-b@example.com")
+
+    create_response = client.post(
+        "/resume-profiles",
+        headers=_auth_headers(user_a_token),
+        json={"title": "User A Resume", "raw_markdown": "# User A"},
+    )
+    assert create_response.status_code == 201
+
+    user_a_list_response = client.get("/resume-profiles", headers=_auth_headers(user_a_token))
+    user_b_list_response = client.get("/resume-profiles", headers=_auth_headers(user_b_token))
+
+    assert [resume["title"] for resume in user_a_list_response.json()] == ["User A Resume"]
+    assert user_b_list_response.json() == []
 
 
 def test_resume_profile_requires_title_and_body(client: TestClient) -> None:
@@ -162,6 +215,31 @@ def test_create_and_list_project(client: TestClient) -> None:
     projects = list_response.json()
     assert len(projects) == 1
     assert projects[0]["id"] == created["id"]
+
+
+def test_projects_are_isolated_by_user(client: TestClient) -> None:
+    user_a_token = _register_test_user(client, email="project-a@example.com")
+    user_b_token = _register_test_user(client, email="project-b@example.com")
+
+    create_response = client.post(
+        "/projects",
+        headers=_auth_headers(user_a_token),
+        json={
+            "name": "User A Project",
+            "project_type": "Web",
+            "role": "Owner",
+            "tech_stack": ["FastAPI"],
+            "description": "User A project",
+            "user_contribution": "Built the project",
+        },
+    )
+    assert create_response.status_code == 201
+
+    user_a_list_response = client.get("/projects", headers=_auth_headers(user_a_token))
+    user_b_list_response = client.get("/projects", headers=_auth_headers(user_b_token))
+
+    assert [project["name"] for project in user_a_list_response.json()] == ["User A Project"]
+    assert user_b_list_response.json() == []
 
 
 def test_project_requires_text_fields_and_tech_stack(client: TestClient) -> None:
@@ -243,6 +321,28 @@ def test_create_and_list_job_description(client: TestClient) -> None:
     assert job_descriptions[0]["id"] == created["id"]
 
 
+def test_job_descriptions_are_isolated_by_user(client: TestClient) -> None:
+    user_a_token = _register_test_user(client, email="job-a@example.com")
+    user_b_token = _register_test_user(client, email="job-b@example.com")
+
+    create_response = client.post(
+        "/job-descriptions",
+        headers=_auth_headers(user_a_token),
+        json={
+            "company_name": "User A Company",
+            "job_title": "Backend Engineer",
+            "raw_text": "Build APIs with FastAPI.",
+        },
+    )
+    assert create_response.status_code == 201
+
+    user_a_list_response = client.get("/job-descriptions", headers=_auth_headers(user_a_token))
+    user_b_list_response = client.get("/job-descriptions", headers=_auth_headers(user_b_token))
+
+    assert [job["company_name"] for job in user_a_list_response.json()] == ["User A Company"]
+    assert user_b_list_response.json() == []
+
+
 def test_job_description_requires_text_fields(client: TestClient) -> None:
     valid_payload = {
         "company_name": "示例公司",
@@ -307,6 +407,37 @@ def test_analyze_job_description_with_mock_ai(
 
     list_response = client.get("/job-descriptions")
     assert list_response.json()[0]["status"] == "analyzed"
+
+
+def test_user_cannot_analyze_another_users_job_description(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_if_called(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise AssertionError("AI should not be called for another user's JD.")
+
+    monkeypatch.setattr(AIClient, "chat_json", fail_if_called)
+    user_a_token = _register_test_user(client, email="jd-analyze-a@example.com")
+    user_b_token = _register_test_user(client, email="jd-analyze-b@example.com")
+
+    create_response = client.post(
+        "/job-descriptions",
+        headers=_auth_headers(user_a_token),
+        json={
+            "company_name": "User A Company",
+            "job_title": "Backend Engineer",
+            "raw_text": "Build APIs with FastAPI.",
+        },
+    )
+    assert create_response.status_code == 201
+    job_description_id = create_response.json()["id"]
+
+    analyze_response = client.post(
+        f"/job-descriptions/{job_description_id}/analyze",
+        headers=_auth_headers(user_b_token),
+    )
+    assert analyze_response.status_code == 404
+    assert analyze_response.json()["detail"] == "Job description was not found."
 
 
 def test_analyze_job_description_requires_api_key(

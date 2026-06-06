@@ -11,7 +11,6 @@ from app.repositories.job_description_repository import JobDescriptionRepository
 from app.schemas.analysis import JobAnalysisAIResult, JobAnalysisRead
 from app.schemas.job_description import JobDescriptionCreate, JobDescriptionRead
 
-DEFAULT_USER_ID = 1
 JD_ANALYZER_PROMPT = "jd_analyzer_v1.md"
 
 
@@ -32,25 +31,25 @@ class JobAnalysisService:
         self.ai_client = ai_client or AIClient()
         self.prompt_loader = prompt_loader or PromptLoader()
 
-    def create_job_description(self, payload: JobDescriptionCreate) -> JobDescriptionRead:
+    def create_job_description(self, payload: JobDescriptionCreate, *, user_id: int) -> JobDescriptionRead:
         job_description = self.job_description_repository.create(
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
             company_name=payload.company_name,
             title=payload.job_title,
             raw_text=payload.raw_text,
         )
         return self._job_description_to_read_model(job_description)
 
-    def list_job_descriptions(self) -> list[JobDescriptionRead]:
+    def list_job_descriptions(self, *, user_id: int) -> list[JobDescriptionRead]:
         return [
             self._job_description_to_read_model(job_description)
-            for job_description in self.job_description_repository.list_by_user(user_id=DEFAULT_USER_ID)
+            for job_description in self.job_description_repository.list_by_user(user_id=user_id)
         ]
 
-    def analyze_job_description(self, job_description_id: int) -> JobAnalysisRead:
+    def analyze_job_description(self, job_description_id: int, *, user_id: int) -> JobAnalysisRead:
         job_description = self.job_description_repository.get_by_id_for_user(
             job_description_id=job_description_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if job_description is None:
             raise JobDescriptionNotFoundError("Job description was not found.")
