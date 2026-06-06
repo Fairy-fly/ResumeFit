@@ -6,6 +6,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User
 from app.schemas.match_report import MatchReportCreate, MatchReportRead
+from app.services.ai_usage_service import AIQuotaExceededError
 from app.services.match_service import JobAnalysisRequiredError, MatchReportNotFoundError, MatchReportService
 
 router = APIRouter(prefix="/match-reports", tags=["match reports"])
@@ -25,6 +26,8 @@ def create_match_report(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except MatchReportNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except AIQuotaExceededError as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
     except AIConfigurationError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except AIResponseError as exc:

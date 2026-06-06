@@ -303,12 +303,23 @@ V0.3 已接入多用户基础能力：
 
 跨表生成流程也必须遵守用户隔离。例如生成匹配报告时，所选简历、项目和 JD 必须属于当前用户；生成简历版本、真实性检测和面试追问时，关联的报告、版本、项目、JD 和分析结果也必须归属于当前用户。
 
+### V0.4 AI 用量与额度
+
+V0.4 新增 AI 调用日志和基础额度系统，但不实现支付、会员、订单或管理员后台。
+
+- AI 调用日志写入 `ai_usage_logs`，按 `user_id` 隔离。
+- 记录功能类型、模型、成功/失败、错误信息、token usage 和估算成本字段。
+- 额度配置来自 `.env`：`AI_MONTHLY_CALL_LIMIT`、`AI_INPUT_TOKEN_PRICE_PER_1K`、`AI_OUTPUT_TOKEN_PRICE_PER_1K`。
+- 五个 AI 功能在 service 层接入用量记录：JD 分析、匹配报告、定制简历、真实性检测、面试追问。
+- `/usage/summary` 为当前用户返回本月用量、剩余额度、功能分布和最近调用记录。
+- 额度耗尽时在调用模型前返回 `429 Monthly AI quota exceeded.`。
+
 ## 10. 后续商业化扩展点
 
 - `BillingService`：会员、套餐、支付。
 - `ExportService`：PDF、Word、多模板导出。
 - `ProviderRegistry`：多 AI 模型和供应商管理。
 - `AuthService`：当前已支持基础注册、登录、JWT，后续可扩展 OAuth、Refresh Token、会话管理和找回密码。
-- `UsageTrackingService`：调用次数、额度、成本统计。
+- `UsageTrackingService`：V0.4 已支持基础调用次数、额度、成本字段预留，后续可扩展套餐和精细化计费。
 - `TemplateService`：简历模板和样式。
 - `ApplicationTracker`：投递进度管理。

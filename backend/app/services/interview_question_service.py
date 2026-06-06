@@ -13,6 +13,7 @@ from app.models.project import Project
 from app.models.resume_profile import ResumeProfile
 from app.models.resume_version import ResumeVersion
 from app.models.truth_check_result import TruthCheckResult
+from app.repositories.ai_usage_repository import AIUsageRepository
 from app.repositories.interview_question_repository import InterviewQuestionRepository
 from app.repositories.job_analysis_repository import JobAnalysisRepository
 from app.repositories.job_description_repository import JobDescriptionRepository
@@ -26,8 +27,10 @@ from app.schemas.interview_question import (
     InterviewQuestionCreate,
     InterviewQuestionResultRead,
 )
+from app.services.ai_usage_service import AIUsageService
 
 INTERVIEW_QUESTION_PROMPT = "interview_question_v1.md"
+INTERVIEW_QUESTION_FEATURE_TYPE = "interview_question"
 
 
 class InterviewQuestionNotFoundError(RuntimeError):
@@ -54,6 +57,7 @@ class InterviewQuestionService:
         self.match_report_repository = MatchReportRepository(db)
         self.truth_check_repository = TruthCheckRepository(db)
         self.interview_question_repository = InterviewQuestionRepository(db)
+        self.ai_usage_service = AIUsageService(AIUsageRepository(db))
         self.ai_client = ai_client or AIClient()
         self.prompt_loader = prompt_loader or PromptLoader()
 
@@ -64,16 +68,23 @@ class InterviewQuestionService:
         user_id: int,
     ) -> InterviewQuestionResultRead:
         context = self._load_context(payload.resume_version_id, user_id=user_id)
-        raw_ai_output = self.ai_client.chat_json(
-            system_prompt=self.prompt_loader.load(INTERVIEW_QUESTION_PROMPT),
-            user_prompt=self._build_user_prompt(**context),
-            temperature=0.2,
-        )
+        def predict_with_ai() -> tuple[dict[str, object], InterviewQuestionAIResult]:
+            raw_output = self.ai_client.chat_json(
+                system_prompt=self.prompt_loader.load(INTERVIEW_QUESTION_PROMPT),
+                user_prompt=self._build_user_prompt(**context),
+                temperature=0.2,
+            )
+            try:
+                return raw_output, InterviewQuestionAIResult.model_validate(raw_output)
+            except ValidationError as exc:
+                raise AIResponseError("AI response JSON did not match the interview question schema.") from exc
 
-        try:
-            parsed = InterviewQuestionAIResult.model_validate(raw_ai_output)
-        except ValidationError as exc:
-            raise AIResponseError("AI response JSON did not match the interview question schema.") from exc
+        raw_ai_output, parsed = self.ai_usage_service.run_with_logging(
+            user_id=user_id,
+            feature_type=INTERVIEW_QUESTION_FEATURE_TYPE,
+            ai_client=self.ai_client,
+            call=predict_with_ai,
+        )
 
         interview_question_result = self.interview_question_repository.create(
             user_id=user_id,

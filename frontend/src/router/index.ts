@@ -8,6 +8,7 @@ import ProjectsPage from "../pages/ProjectsPage.vue";
 import RegisterPage from "../pages/RegisterPage.vue";
 import ResumeProfilePage from "../pages/ResumeProfilePage.vue";
 import ResumeVersionsPage from "../pages/ResumeVersionsPage.vue";
+import UsagePage from "../pages/UsagePage.vue";
 import { authSession, clearSession, hasAccessToken, loadCurrentUser } from "../auth/session";
 
 export const router = createRouter({
@@ -19,6 +20,7 @@ export const router = createRouter({
     { path: "/jobs", component: JobDescriptionsPage },
     { path: "/analysis", component: AnalysisWorkspacePage },
     { path: "/versions", component: ResumeVersionsPage },
+    { path: "/usage", component: UsagePage },
     { path: "/login", component: LoginPage, meta: { public: true, guestOnly: true } },
     { path: "/register", component: RegisterPage, meta: { public: true, guestOnly: true } }
   ]

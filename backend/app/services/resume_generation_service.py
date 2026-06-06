@@ -14,6 +14,7 @@ from app.models.match_report import MatchReport
 from app.models.project import Project
 from app.models.resume_profile import ResumeProfile
 from app.models.resume_version import ResumeVersion
+from app.repositories.ai_usage_repository import AIUsageRepository
 from app.repositories.job_analysis_repository import JobAnalysisRepository
 from app.repositories.job_description_repository import JobDescriptionRepository
 from app.repositories.match_report_repository import MatchReportRepository
@@ -21,8 +22,10 @@ from app.repositories.project_repository import ProjectRepository
 from app.repositories.resume_profile_repository import ResumeProfileRepository
 from app.repositories.resume_version_repository import ResumeVersionRepository
 from app.schemas.resume_version import ResumeVersionGenerate, ResumeVersionRead, ResumeWriterAIResult
+from app.services.ai_usage_service import AIUsageService
 
 RESUME_WRITER_PROMPT = "resume_writer_v1.md"
+RESUME_GENERATION_FEATURE_TYPE = "resume_generation"
 MAX_MARKDOWN_FILENAME_STEM_LENGTH = 80
 WINDOWS_RESERVED_FILENAMES = {
     "CON",
@@ -83,6 +86,7 @@ class ResumeGenerationService:
         self.job_analysis_repository = JobAnalysisRepository(db)
         self.match_report_repository = MatchReportRepository(db)
         self.resume_version_repository = ResumeVersionRepository(db)
+        self.ai_usage_service = AIUsageService(AIUsageRepository(db))
         self.ai_client = ai_client or AIClient()
         self.prompt_loader = prompt_loader or PromptLoader()
 
@@ -99,21 +103,29 @@ class ResumeGenerationService:
             job_analysis=job_analysis,
         )
 
-        raw_ai_output = self.ai_client.chat_json(
-            system_prompt=self.prompt_loader.load(RESUME_WRITER_PROMPT),
-            user_prompt=self._build_user_prompt(
-                resume_profile=resume_profile,
-                projects=projects,
-                job_description=job_description,
-                job_analysis=job_analysis,
-                match_report=match_report,
-            ),
-            temperature=0.2,
+        def write_with_ai() -> tuple[dict[str, object], ResumeWriterAIResult]:
+            raw_output = self.ai_client.chat_json(
+                system_prompt=self.prompt_loader.load(RESUME_WRITER_PROMPT),
+                user_prompt=self._build_user_prompt(
+                    resume_profile=resume_profile,
+                    projects=projects,
+                    job_description=job_description,
+                    job_analysis=job_analysis,
+                    match_report=match_report,
+                ),
+                temperature=0.2,
+            )
+            try:
+                return raw_output, ResumeWriterAIResult.model_validate(raw_output)
+            except ValidationError as exc:
+                raise AIResponseError("AI response JSON did not match the resume writer schema.") from exc
+
+        raw_ai_output, parsed = self.ai_usage_service.run_with_logging(
+            user_id=user_id,
+            feature_type=RESUME_GENERATION_FEATURE_TYPE,
+            ai_client=self.ai_client,
+            call=write_with_ai,
         )
-        try:
-            parsed = ResumeWriterAIResult.model_validate(raw_ai_output)
-        except ValidationError as exc:
-            raise AIResponseError("AI response JSON did not match the resume writer schema.") from exc
 
         resume_version = self.resume_version_repository.create(
             user_id=user_id,

@@ -12,6 +12,7 @@ from app.models.project import Project
 from app.models.resume_profile import ResumeProfile
 from app.models.resume_version import ResumeVersion
 from app.models.truth_check_result import TruthCheckResult
+from app.repositories.ai_usage_repository import AIUsageRepository
 from app.repositories.job_analysis_repository import JobAnalysisRepository
 from app.repositories.job_description_repository import JobDescriptionRepository
 from app.repositories.match_report_repository import MatchReportRepository
@@ -20,8 +21,10 @@ from app.repositories.resume_profile_repository import ResumeProfileRepository
 from app.repositories.resume_version_repository import ResumeVersionRepository
 from app.repositories.truth_check_repository import TruthCheckRepository
 from app.schemas.truth_check import TruthCheckAIResult, TruthCheckCreate, TruthCheckResultRead
+from app.services.ai_usage_service import AIUsageService
 
 TRUTH_CHECKER_PROMPT = "truth_checker_v1.md"
+TRUTH_CHECK_FEATURE_TYPE = "truth_check"
 
 
 class TruthCheckNotFoundError(RuntimeError):
@@ -47,21 +50,29 @@ class TruthCheckService:
         self.job_analysis_repository = JobAnalysisRepository(db)
         self.match_report_repository = MatchReportRepository(db)
         self.truth_check_repository = TruthCheckRepository(db)
+        self.ai_usage_service = AIUsageService(AIUsageRepository(db))
         self.ai_client = ai_client or AIClient()
         self.prompt_loader = prompt_loader or PromptLoader()
 
     def create_truth_check_result(self, payload: TruthCheckCreate, *, user_id: int) -> TruthCheckResultRead:
         context = self._load_context(payload.resume_version_id, user_id=user_id)
-        raw_ai_output = self.ai_client.chat_json(
-            system_prompt=self.prompt_loader.load(TRUTH_CHECKER_PROMPT),
-            user_prompt=self._build_user_prompt(**context),
-            temperature=0.1,
-        )
+        def check_with_ai() -> tuple[dict[str, object], TruthCheckAIResult]:
+            raw_output = self.ai_client.chat_json(
+                system_prompt=self.prompt_loader.load(TRUTH_CHECKER_PROMPT),
+                user_prompt=self._build_user_prompt(**context),
+                temperature=0.1,
+            )
+            try:
+                return raw_output, TruthCheckAIResult.model_validate(raw_output)
+            except ValidationError as exc:
+                raise AIResponseError("AI response JSON did not match the truth check schema.") from exc
 
-        try:
-            parsed = TruthCheckAIResult.model_validate(raw_ai_output)
-        except ValidationError as exc:
-            raise AIResponseError("AI response JSON did not match the truth check schema.") from exc
+        raw_ai_output, parsed = self.ai_usage_service.run_with_logging(
+            user_id=user_id,
+            feature_type=TRUTH_CHECK_FEATURE_TYPE,
+            ai_client=self.ai_client,
+            call=check_with_ai,
+        )
 
         truth_check_result = self.truth_check_repository.create(
             user_id=user_id,

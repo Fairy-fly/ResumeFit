@@ -1,17 +1,21 @@
 import json
 
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.ai.client import AIClient
+from app.ai.client import AIClient, AIResponseError
 from app.ai.prompt_loader import PromptLoader
 from app.models.job_analysis import JobAnalysis
 from app.models.job_description import JobDescription
+from app.repositories.ai_usage_repository import AIUsageRepository
 from app.repositories.job_analysis_repository import JobAnalysisRepository
 from app.repositories.job_description_repository import JobDescriptionRepository
 from app.schemas.analysis import JobAnalysisAIResult, JobAnalysisRead
 from app.schemas.job_description import JobDescriptionCreate, JobDescriptionRead
+from app.services.ai_usage_service import AIUsageService
 
 JD_ANALYZER_PROMPT = "jd_analyzer_v1.md"
+JD_ANALYSIS_FEATURE_TYPE = "jd_analysis"
 
 
 class JobDescriptionNotFoundError(RuntimeError):
@@ -28,6 +32,7 @@ class JobAnalysisService:
     ) -> None:
         self.job_description_repository = JobDescriptionRepository(db)
         self.job_analysis_repository = JobAnalysisRepository(db)
+        self.ai_usage_service = AIUsageService(AIUsageRepository(db))
         self.ai_client = ai_client or AIClient()
         self.prompt_loader = prompt_loader or PromptLoader()
 
@@ -54,12 +59,23 @@ class JobAnalysisService:
         if job_description is None:
             raise JobDescriptionNotFoundError("Job description was not found.")
 
-        raw_ai_output = self.ai_client.chat_json(
-            system_prompt=self.prompt_loader.load(JD_ANALYZER_PROMPT),
-            user_prompt=self._build_user_prompt(job_description),
-            temperature=0.1,
+        def analyze_with_ai() -> tuple[dict[str, object], JobAnalysisAIResult]:
+            raw_output = self.ai_client.chat_json(
+                system_prompt=self.prompt_loader.load(JD_ANALYZER_PROMPT),
+                user_prompt=self._build_user_prompt(job_description),
+                temperature=0.1,
+            )
+            try:
+                return raw_output, JobAnalysisAIResult.model_validate(raw_output)
+            except ValidationError as exc:
+                raise AIResponseError("AI response JSON did not match the job analysis schema.") from exc
+
+        raw_ai_output, parsed = self.ai_usage_service.run_with_logging(
+            user_id=user_id,
+            feature_type=JD_ANALYSIS_FEATURE_TYPE,
+            ai_client=self.ai_client,
+            call=analyze_with_ai,
         )
-        parsed = JobAnalysisAIResult.model_validate(raw_ai_output)
 
         analysis = self.job_analysis_repository.upsert(
             job_description_id=job_description.id,

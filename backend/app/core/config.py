@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     ai_api_key: str | None = None
     ai_model: str = "deepseek-chat"
     ai_timeout_seconds: int = 60
+    ai_monthly_call_limit: int = 100
+    ai_input_token_price_per_1k: float = 0
+    ai_output_token_price_per_1k: float = 0
     cors_origins: str = "http://localhost:5173"
     jwt_secret_key: str = "change_me_for_local_dev_secret_please_replace"
     jwt_algorithm: str = "HS256"

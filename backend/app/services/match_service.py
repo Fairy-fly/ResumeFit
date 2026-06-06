@@ -10,14 +10,17 @@ from app.models.job_description import JobDescription
 from app.models.match_report import MatchReport
 from app.models.project import Project
 from app.models.resume_profile import ResumeProfile
+from app.repositories.ai_usage_repository import AIUsageRepository
 from app.repositories.job_analysis_repository import JobAnalysisRepository
 from app.repositories.job_description_repository import JobDescriptionRepository
 from app.repositories.match_report_repository import MatchReportRepository
 from app.repositories.project_repository import ProjectRepository
 from app.repositories.resume_profile_repository import ResumeProfileRepository
 from app.schemas.match_report import MatchReportAIResult, MatchReportCreate, MatchReportRead
+from app.services.ai_usage_service import AIUsageService
 
 MATCH_SCORER_PROMPT = "match_scorer_v1.md"
+MATCH_REPORT_FEATURE_TYPE = "match_report"
 
 
 class MatchReportNotFoundError(RuntimeError):
@@ -41,6 +44,7 @@ class MatchReportService:
         self.job_description_repository = JobDescriptionRepository(db)
         self.job_analysis_repository = JobAnalysisRepository(db)
         self.match_report_repository = MatchReportRepository(db)
+        self.ai_usage_service = AIUsageService(AIUsageRepository(db))
         self.ai_client = ai_client or AIClient()
         self.prompt_loader = prompt_loader or PromptLoader()
 
@@ -49,20 +53,28 @@ class MatchReportService:
         projects = self._get_projects(payload.project_ids, user_id=user_id)
         job_description, job_analysis = self._get_job_context(payload, user_id=user_id)
 
-        raw_ai_output = self.ai_client.chat_json(
-            system_prompt=self.prompt_loader.load(MATCH_SCORER_PROMPT),
-            user_prompt=self._build_user_prompt(
-                resume_profile=resume_profile,
-                projects=projects,
-                job_description=job_description,
-                job_analysis=job_analysis,
-            ),
-            temperature=0.1,
+        def score_with_ai() -> tuple[dict[str, object], MatchReportAIResult]:
+            raw_output = self.ai_client.chat_json(
+                system_prompt=self.prompt_loader.load(MATCH_SCORER_PROMPT),
+                user_prompt=self._build_user_prompt(
+                    resume_profile=resume_profile,
+                    projects=projects,
+                    job_description=job_description,
+                    job_analysis=job_analysis,
+                ),
+                temperature=0.1,
+            )
+            try:
+                return raw_output, MatchReportAIResult.model_validate(raw_output)
+            except ValidationError as exc:
+                raise AIResponseError("AI response JSON did not match the match report schema.") from exc
+
+        raw_ai_output, parsed = self.ai_usage_service.run_with_logging(
+            user_id=user_id,
+            feature_type=MATCH_REPORT_FEATURE_TYPE,
+            ai_client=self.ai_client,
+            call=score_with_ai,
         )
-        try:
-            parsed = MatchReportAIResult.model_validate(raw_ai_output)
-        except ValidationError as exc:
-            raise AIResponseError("AI response JSON did not match the match report schema.") from exc
 
         match_report = self.match_report_repository.create(
             user_id=user_id,

@@ -7,6 +7,7 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.schemas.analysis import JobAnalysisRead
 from app.schemas.job_description import JobDescriptionCreate, JobDescriptionRead
+from app.services.ai_usage_service import AIQuotaExceededError
 from app.services.job_analysis_service import JobAnalysisService, JobDescriptionNotFoundError
 
 router = APIRouter(prefix="/job-descriptions", tags=["job descriptions"])
@@ -43,6 +44,8 @@ def analyze_job_description(
         return service.analyze_job_description(job_description_id, user_id=current_user.id)
     except JobDescriptionNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except AIQuotaExceededError as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
     except AIConfigurationError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except AIResponseError as exc:

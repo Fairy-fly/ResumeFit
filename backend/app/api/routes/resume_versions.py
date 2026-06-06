@@ -6,6 +6,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User
 from app.schemas.resume_version import ResumeVersionGenerate, ResumeVersionRead
+from app.services.ai_usage_service import AIQuotaExceededError
 from app.services.resume_generation_service import (
     JobAnalysisRequiredError,
     ResumeGenerationNotFoundError,
@@ -41,6 +42,8 @@ def generate_resume_version(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except ResumeGenerationNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except AIQuotaExceededError as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
     except AIConfigurationError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except AIResponseError as exc:

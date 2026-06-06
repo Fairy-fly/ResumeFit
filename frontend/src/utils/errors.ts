@@ -33,6 +33,10 @@ export function getFriendlyErrorMessage(error: unknown): string {
     return "AI 服务暂时不可用，请检查网络或稍后重试";
   }
 
+  if (status === 429 && normalized.includes("monthly ai quota exceeded")) {
+    return "本月 AI 调用额度已用完，请下月再试，或调整后端 .env 中的 AI_MONTHLY_CALL_LIMIT 配置";
+  }
+
   if (status === 404 && normalized.includes("resume version")) {
     return "该简历版本不存在或已被删除";
   }

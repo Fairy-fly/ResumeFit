@@ -166,6 +166,7 @@ Invoke-RestMethod http://localhost:8000/dashboard/summary
 - [SCREENSHOT_CHECKLIST.md](SCREENSHOT_CHECKLIST.md)：PPT 或报告建议截图清单。
 - [PPT_OUTLINE.md](PPT_OUTLINE.md)：12 页左右答辩 PPT 大纲。
 - [ACCEPTANCE_CHECKLIST.md](ACCEPTANCE_CHECKLIST.md)：提交前验收检查表。
+- [V0.4_ACCEPTANCE_CHECKLIST.md](V0.4_ACCEPTANCE_CHECKLIST.md)：AI 用量与基础额度验收清单。
 
 ## 通用简历输入模块测试
 
@@ -525,6 +526,34 @@ Swagger 测试步骤：
 - `v0.1-demo-mvp`
 - `v0.2-product-experience`
 - `v0.3-multi-user`
+
+## V0.4 AI 用量与基础额度说明
+
+V0.4 增加 AI 使用次数、调用日志、成本字段预留和基础月额度。当前阶段仍不包含支付、会员套餐、订单、管理员后台或发票。
+
+新增能力：
+
+- 记录每个用户的 AI 调用日志。
+- 记录功能类型：`jd_analysis`、`match_report`、`resume_generation`、`truth_check`、`interview_question`。
+- 记录模型、成功/失败、错误信息和创建时间。
+- token usage 字段可为空，后续可根据供应商返回补齐。
+- `estimated_cost` 字段先做成本估算预留。
+- 超过本月额度时阻止 AI 调用，并返回明确错误。
+- 新增 `/usage` 页面，展示本月调用次数、剩余额度、功能分布和最近调用记录。
+
+`.env` 配置：
+
+```text
+AI_MONTHLY_CALL_LIMIT=100
+AI_INPUT_TOKEN_PRICE_PER_1K=0
+AI_OUTPUT_TOKEN_PRICE_PER_1K=0
+```
+
+用量 API：
+
+- `GET /usage/summary`：需要登录，返回当前用户的 AI 用量统计。
+
+注意：额度单位是“AI 调用次数”，不是会员套餐或付费订单。V0.4 只为后续商业化打基础。
 
 ## MVP 不做什么
 

@@ -413,6 +413,181 @@ def test_analyze_job_description_with_mock_ai(
     assert list_response.json()[0]["status"] == "analyzed"
 
 
+def test_usage_summary_requires_login(anonymous_client: TestClient) -> None:
+    response = anonymous_client.get("/usage/summary")
+
+    assert response.status_code == 401
+
+
+def test_usage_summary_starts_empty(client: TestClient) -> None:
+    response = client.get("/usage/summary")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["monthly_quota"] == settings.ai_monthly_call_limit
+    assert payload["monthly_used"] == 0
+    assert payload["monthly_remaining"] == settings.ai_monthly_call_limit
+    assert payload["total_call_count"] == 0
+    assert payload["monthly_success_count"] == 0
+    assert payload["monthly_failure_count"] == 0
+    assert payload["feature_counts"] == []
+    assert payload["recent_calls"] == []
+
+
+def test_successful_ai_call_is_logged_in_usage_summary(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_chat_json(self: AIClient, **_: object) -> dict[str, object]:
+        return {
+            "job_title": "后端开发工程师",
+            "job_type": "后端开发",
+            "required_skills": ["FastAPI"],
+            "bonus_skills": [],
+            "responsibilities": ["负责 API 开发"],
+            "keywords": ["FastAPI"],
+            "resume_focus_suggestions": ["突出 API 经验"],
+        }
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_chat_json)
+    create_response = client.post(
+        "/job-descriptions",
+        json={
+            "company_name": "示例公司",
+            "job_title": "后端开发工程师",
+            "raw_text": "负责 FastAPI 服务开发。",
+        },
+    )
+
+    analyze_response = client.post(f"/job-descriptions/{create_response.json()['id']}/analyze")
+    summary_response = client.get("/usage/summary")
+
+    assert analyze_response.status_code == 200
+    assert summary_response.status_code == 200
+    payload = summary_response.json()
+    assert payload["monthly_used"] == 1
+    assert payload["total_call_count"] == 1
+    assert payload["monthly_success_count"] == 1
+    assert payload["monthly_failure_count"] == 0
+    assert payload["feature_counts"] == [
+        {"feature_type": "jd_analysis", "count": 1, "success_count": 1, "failure_count": 0}
+    ]
+    assert payload["recent_calls"][0]["feature_type"] == "jd_analysis"
+    assert payload["recent_calls"][0]["status"] == "success"
+    assert payload["recent_calls"][0]["error_message"] is None
+
+
+def test_usage_summary_is_isolated_by_user(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_chat_json(self: AIClient, **_: object) -> dict[str, object]:
+        return {
+            "job_title": "后端开发工程师",
+            "job_type": "后端开发",
+            "required_skills": ["FastAPI"],
+            "bonus_skills": [],
+            "responsibilities": ["负责 API 开发"],
+            "keywords": ["FastAPI"],
+            "resume_focus_suggestions": ["突出 API 经验"],
+        }
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_chat_json)
+    user_a_token = _register_test_user(client, email="usage-a@example.com")
+    user_b_token = _register_test_user(client, email="usage-b@example.com")
+    user_a_headers = _auth_headers(user_a_token)
+    user_b_headers = _auth_headers(user_b_token)
+
+    create_response = client.post(
+        "/job-descriptions",
+        headers=user_a_headers,
+        json={
+            "company_name": "示例公司",
+            "job_title": "后端开发工程师",
+            "raw_text": "负责 FastAPI 服务开发。",
+        },
+    )
+    client.post(f"/job-descriptions/{create_response.json()['id']}/analyze", headers=user_a_headers)
+
+    user_a_summary = client.get("/usage/summary", headers=user_a_headers)
+    user_b_summary = client.get("/usage/summary", headers=user_b_headers)
+
+    assert user_a_summary.json()["monthly_used"] == 1
+    assert user_b_summary.json()["monthly_used"] == 0
+    assert user_b_summary.json()["recent_calls"] == []
+
+
+def test_failed_ai_call_is_logged_in_usage_summary(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ai_api_key", None)
+    monkeypatch.setattr(AIClient, "chat_json", lambda self, **_: self._ensure_configured())
+    create_response = client.post(
+        "/job-descriptions",
+        json={
+            "company_name": "示例公司",
+            "job_title": "后端开发工程师",
+            "raw_text": "负责 FastAPI 服务开发。",
+        },
+    )
+
+    analyze_response = client.post(f"/job-descriptions/{create_response.json()['id']}/analyze")
+    summary_response = client.get("/usage/summary")
+
+    assert analyze_response.status_code == 503
+    payload = summary_response.json()
+    assert payload["monthly_used"] == 1
+    assert payload["monthly_success_count"] == 0
+    assert payload["monthly_failure_count"] == 1
+    assert payload["feature_counts"] == [
+        {"feature_type": "jd_analysis", "count": 1, "success_count": 0, "failure_count": 1}
+    ]
+    assert payload["recent_calls"][0]["status"] == "failed"
+    assert payload["recent_calls"][0]["error_message"] == "AI_API_KEY is not configured."
+
+
+def test_monthly_ai_quota_blocks_provider_call(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ai_monthly_call_limit", 1)
+
+    def fake_chat_json(self: AIClient, **_: object) -> dict[str, object]:
+        return {
+            "job_title": "后端开发工程师",
+            "job_type": "后端开发",
+            "required_skills": ["FastAPI"],
+            "bonus_skills": [],
+            "responsibilities": ["负责 API 开发"],
+            "keywords": ["FastAPI"],
+            "resume_focus_suggestions": ["突出 API 经验"],
+        }
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_chat_json)
+    first_jd = client.post(
+        "/job-descriptions",
+        json={"company_name": "A", "job_title": "Backend", "raw_text": "Build APIs."},
+    )
+    first_response = client.post(f"/job-descriptions/{first_jd.json()['id']}/analyze")
+    assert first_response.status_code == 200
+
+    def fail_if_called(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise AssertionError("AI should not be called after quota is exhausted.")
+
+    monkeypatch.setattr(AIClient, "chat_json", fail_if_called)
+    second_jd = client.post(
+        "/job-descriptions",
+        json={"company_name": "B", "job_title": "Backend", "raw_text": "Build APIs."},
+    )
+    second_response = client.post(f"/job-descriptions/{second_jd.json()['id']}/analyze")
+    summary_response = client.get("/usage/summary")
+
+    assert second_response.status_code == 429
+    assert second_response.json()["detail"] == "Monthly AI quota exceeded."
+    assert summary_response.json()["monthly_used"] == 1
+
+
 def test_user_cannot_analyze_another_users_job_description(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
