@@ -17,7 +17,6 @@ from app.repositories.project_repository import ProjectRepository
 from app.repositories.resume_profile_repository import ResumeProfileRepository
 from app.schemas.match_report import MatchReportAIResult, MatchReportCreate, MatchReportRead
 
-DEFAULT_USER_ID = 1
 MATCH_SCORER_PROMPT = "match_scorer_v1.md"
 
 
@@ -45,10 +44,10 @@ class MatchReportService:
         self.ai_client = ai_client or AIClient()
         self.prompt_loader = prompt_loader or PromptLoader()
 
-    def create_match_report(self, payload: MatchReportCreate) -> MatchReportRead:
-        resume_profile = self._get_resume_profile(payload.resume_profile_id)
-        projects = self._get_projects(payload.project_ids)
-        job_description, job_analysis = self._get_job_context(payload)
+    def create_match_report(self, payload: MatchReportCreate, *, user_id: int) -> MatchReportRead:
+        resume_profile = self._get_resume_profile(payload.resume_profile_id, user_id=user_id)
+        projects = self._get_projects(payload.project_ids, user_id=user_id)
+        job_description, job_analysis = self._get_job_context(payload, user_id=user_id)
 
         raw_ai_output = self.ai_client.chat_json(
             system_prompt=self.prompt_loader.load(MATCH_SCORER_PROMPT),
@@ -66,7 +65,7 @@ class MatchReportService:
             raise AIResponseError("AI response JSON did not match the match report schema.") from exc
 
         match_report = self.match_report_repository.create(
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
             resume_profile_id=resume_profile.id,
             project_ids_json=self._to_json(payload.project_ids),
             job_description_id=job_description.id,
@@ -82,40 +81,40 @@ class MatchReportService:
         )
         return self._to_read_model(match_report)
 
-    def list_match_reports(self) -> list[MatchReportRead]:
+    def list_match_reports(self, *, user_id: int) -> list[MatchReportRead]:
         return [
             self._to_read_model(match_report)
-            for match_report in self.match_report_repository.list_by_user(user_id=DEFAULT_USER_ID)
+            for match_report in self.match_report_repository.list_by_user(user_id=user_id)
         ]
 
-    def _get_resume_profile(self, resume_profile_id: int) -> ResumeProfile:
+    def _get_resume_profile(self, resume_profile_id: int, *, user_id: int) -> ResumeProfile:
         resume_profile = self.resume_profile_repository.get_by_id_for_user(
             resume_profile_id=resume_profile_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if resume_profile is None:
             raise MatchReportNotFoundError("Resume profile was not found.")
         return resume_profile
 
-    def _get_projects(self, project_ids: list[int]) -> list[Project]:
-        projects = self.project_repository.list_by_ids_for_user(project_ids=project_ids, user_id=DEFAULT_USER_ID)
+    def _get_projects(self, project_ids: list[int], *, user_id: int) -> list[Project]:
+        projects = self.project_repository.list_by_ids_for_user(project_ids=project_ids, user_id=user_id)
         found_project_ids = {project.id for project in projects}
         missing_project_ids = [project_id for project_id in project_ids if project_id not in found_project_ids]
         if missing_project_ids:
             raise MatchReportNotFoundError("One or more projects were not found.")
         return sorted(projects, key=lambda project: project_ids.index(project.id))
 
-    def _get_job_context(self, payload: MatchReportCreate) -> tuple[JobDescription, JobAnalysis]:
+    def _get_job_context(self, payload: MatchReportCreate, *, user_id: int) -> tuple[JobDescription, JobAnalysis]:
         if payload.job_analysis_id is not None:
             job_analysis = self.job_analysis_repository.get_by_id(job_analysis_id=payload.job_analysis_id)
             if job_analysis is None:
                 raise MatchReportNotFoundError("Job analysis was not found.")
             job_description = self.job_description_repository.get_by_id_for_user(
                 job_description_id=job_analysis.job_description_id,
-                user_id=DEFAULT_USER_ID,
+                user_id=user_id,
             )
             if job_description is None:
-                raise MatchReportNotFoundError("Job description was not found.")
+                raise MatchReportNotFoundError("Job analysis was not found.")
             return job_description, job_analysis
 
         if payload.job_description_id is None:
@@ -123,7 +122,7 @@ class MatchReportService:
 
         job_description = self.job_description_repository.get_by_id_for_user(
             job_description_id=payload.job_description_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if job_description is None:
             raise MatchReportNotFoundError("Job description was not found.")

@@ -74,6 +74,10 @@ def _auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def _request_kwargs(headers: dict[str, str] | None) -> dict[str, dict[str, str]]:
+    return {"headers": headers} if headers is not None else {}
+
+
 def test_health_check(client: TestClient) -> None:
     response = client.get("/health")
     assert response.status_code == 200
@@ -580,6 +584,74 @@ def test_create_match_report_with_mock_ai(
     assert report["model_name"] == "deepseek-chat"
 
 
+def test_match_reports_require_login(anonymous_client: TestClient) -> None:
+    response = anonymous_client.get("/match-reports")
+
+    assert response.status_code == 401
+
+
+def test_match_reports_are_isolated_by_user(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    user_a_token = _register_test_user(client, email="match-a@example.com")
+    user_b_token = _register_test_user(client, email="match-b@example.com")
+    user_a_headers = _auth_headers(user_a_token)
+    user_b_headers = _auth_headers(user_b_token)
+
+    ids = _resume_version_context(client, monkeypatch, headers=user_a_headers)
+
+    user_a_response = client.get("/match-reports", headers=user_a_headers)
+    user_b_response = client.get("/match-reports", headers=user_b_headers)
+
+    assert user_a_response.status_code == 200
+    assert [report["id"] for report in user_a_response.json()] == [ids["match_report_id"]]
+    assert user_b_response.status_code == 200
+    assert user_b_response.json() == []
+
+
+def test_match_report_rejects_cross_user_inputs(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    user_a_token = _register_test_user(client, email="match-input-a@example.com")
+    user_b_token = _register_test_user(client, email="match-input-b@example.com")
+    user_a_headers = _auth_headers(user_a_token)
+    user_b_headers = _auth_headers(user_b_token)
+
+    user_a_ids = _resume_version_context(client, monkeypatch, headers=user_a_headers)
+    user_b_ids = _resume_version_context(client, monkeypatch, headers=user_b_headers)
+
+    resume_response = client.post(
+        "/match-reports",
+        headers=user_b_headers,
+        json={
+            "resume_profile_id": user_a_ids["resume_profile_id"],
+            "project_ids": [user_b_ids["project_id"]],
+            "job_description_id": user_b_ids["job_description_id"],
+        },
+    )
+    project_response = client.post(
+        "/match-reports",
+        headers=user_b_headers,
+        json={
+            "resume_profile_id": user_b_ids["resume_profile_id"],
+            "project_ids": [user_a_ids["project_id"]],
+            "job_description_id": user_b_ids["job_description_id"],
+        },
+    )
+    job_response = client.post(
+        "/match-reports",
+        headers=user_b_headers,
+        json={
+            "resume_profile_id": user_b_ids["resume_profile_id"],
+            "project_ids": [user_b_ids["project_id"]],
+            "job_description_id": user_a_ids["job_description_id"],
+        },
+    )
+
+    assert resume_response.status_code == 404
+    assert resume_response.json()["detail"] == "Resume profile was not found."
+    assert project_response.status_code == 404
+    assert project_response.json()["detail"] == "One or more projects were not found."
+    assert job_response.status_code == 404
+    assert job_response.json()["detail"] == "Job description was not found."
+
+
 def test_match_report_requires_project_ids(client: TestClient) -> None:
     response = client.post(
         "/match-reports",
@@ -777,7 +849,12 @@ def test_match_report_handles_invalid_ai_response(
     assert response.json()["detail"] == "AI response was not valid JSON."
 
 
-def _resume_version_context(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
+def _resume_version_context(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    headers: dict[str, str] | None = None,
+) -> dict[str, int]:
     def fake_chat_json(
         self: AIClient,
         *,
@@ -826,6 +903,7 @@ def _resume_version_context(client: TestClient, monkeypatch: pytest.MonkeyPatch)
 
     resume_response = client.post(
         "/resume-profiles",
+        **_request_kwargs(headers),
         json={
             "title": "Backend General Resume",
             "raw_markdown": "# Resume\nExperienced with FastAPI and SQL.",
@@ -833,6 +911,7 @@ def _resume_version_context(client: TestClient, monkeypatch: pytest.MonkeyPatch)
     )
     project_response = client.post(
         "/projects",
+        **_request_kwargs(headers),
         json={
             "name": "ResumeFit Demo",
             "project_type": "Web app",
@@ -845,6 +924,7 @@ def _resume_version_context(client: TestClient, monkeypatch: pytest.MonkeyPatch)
     )
     job_response = client.post(
         "/job-descriptions",
+        **_request_kwargs(headers),
         json={
             "company_name": "Example Co",
             "job_title": "Backend Developer",
@@ -852,11 +932,15 @@ def _resume_version_context(client: TestClient, monkeypatch: pytest.MonkeyPatch)
         },
     )
     job_description_id = job_response.json()["id"]
-    analysis_response = client.post(f"/job-descriptions/{job_description_id}/analyze")
+    analysis_response = client.post(
+        f"/job-descriptions/{job_description_id}/analyze",
+        **_request_kwargs(headers),
+    )
     assert analysis_response.status_code == 200
 
     match_response = client.post(
         "/match-reports",
+        **_request_kwargs(headers),
         json={
             "resume_profile_id": resume_response.json()["id"],
             "project_ids": [project_response.json()["id"]],
@@ -872,6 +956,12 @@ def _resume_version_context(client: TestClient, monkeypatch: pytest.MonkeyPatch)
         "job_analysis_id": analysis_response.json()["id"],
         "match_report_id": match_response.json()["id"],
     }
+
+
+def test_resume_versions_require_login(anonymous_client: TestClient) -> None:
+    response = anonymous_client.get("/resume-versions")
+
+    assert response.status_code == 401
 
 
 def test_generate_resume_version_with_mock_ai(
@@ -910,6 +1000,51 @@ def test_generate_resume_version_with_mock_ai(
         }
     ]
     assert resume_version["model_name"] == "deepseek-chat"
+
+
+def test_resume_versions_are_isolated_by_user(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    user_a_token = _register_test_user(client, email="version-a@example.com")
+    user_b_token = _register_test_user(client, email="version-b@example.com")
+    user_a_headers = _auth_headers(user_a_token)
+    user_b_headers = _auth_headers(user_b_token)
+
+    ids = _resume_version_context(client, monkeypatch, headers=user_a_headers)
+    resume_version_id = _create_generated_resume_version(client, ids, headers=user_a_headers)
+
+    user_a_response = client.get("/resume-versions", headers=user_a_headers)
+    user_b_response = client.get("/resume-versions", headers=user_b_headers)
+
+    assert user_a_response.status_code == 200
+    assert [version["id"] for version in user_a_response.json()] == [resume_version_id]
+    assert user_b_response.status_code == 200
+    assert user_b_response.json() == []
+
+
+def test_resume_version_rejects_another_users_match_report(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user_a_token = _register_test_user(client, email="version-match-a@example.com")
+    user_b_token = _register_test_user(client, email="version-match-b@example.com")
+    user_a_headers = _auth_headers(user_a_token)
+    user_b_headers = _auth_headers(user_b_token)
+
+    user_a_ids = _resume_version_context(client, monkeypatch, headers=user_a_headers)
+    user_b_ids = _resume_version_context(client, monkeypatch, headers=user_b_headers)
+
+    response = client.post(
+        "/resume-versions/generate",
+        headers=user_b_headers,
+        json={
+            "resume_profile_id": user_b_ids["resume_profile_id"],
+            "project_ids": [user_b_ids["project_id"]],
+            "job_description_id": user_b_ids["job_description_id"],
+            "match_report_id": user_a_ids["match_report_id"],
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Match report was not found."
 
 
 def test_resume_version_rejects_mismatched_match_report(
@@ -1020,6 +1155,38 @@ def test_export_resume_version_markdown(
     assert ".md" in content_disposition
 
 
+def test_export_resume_version_markdown_isolated_by_user(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user_a_token = _register_test_user(client, email="export-a@example.com")
+    user_b_token = _register_test_user(client, email="export-b@example.com")
+    user_a_headers = _auth_headers(user_a_token)
+    user_b_headers = _auth_headers(user_b_token)
+
+    ids = _resume_version_context(client, monkeypatch, headers=user_a_headers)
+    resume_version_id = _create_generated_resume_version(client, ids, headers=user_a_headers)
+    monkeypatch.setattr(
+        AIClient,
+        "chat_json",
+        lambda self, **_: (_ for _ in ()).throw(AssertionError("Export must not call AI.")),
+    )
+
+    user_b_response = client.get(
+        f"/resume-versions/{resume_version_id}/export/markdown",
+        headers=user_b_headers,
+    )
+    user_a_response = client.get(
+        f"/resume-versions/{resume_version_id}/export/markdown",
+        headers=user_a_headers,
+    )
+
+    assert user_b_response.status_code == 404
+    assert user_b_response.json()["detail"] == "Resume version was not found."
+    assert user_a_response.status_code == 200
+    assert "ResumeFit Demo" in user_a_response.text
+
+
 def test_export_resume_version_markdown_sanitizes_filename(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -1053,9 +1220,15 @@ def test_export_resume_version_markdown_returns_not_found(client: TestClient) ->
     assert response.json()["detail"] == "Resume version was not found."
 
 
-def _create_generated_resume_version(client: TestClient, ids: dict[str, int]) -> int:
+def _create_generated_resume_version(
+    client: TestClient,
+    ids: dict[str, int],
+    *,
+    headers: dict[str, str] | None = None,
+) -> int:
     response = client.post(
         "/resume-versions/generate",
+        **_request_kwargs(headers),
         json={
             "resume_profile_id": ids["resume_profile_id"],
             "project_ids": [ids["project_id"]],

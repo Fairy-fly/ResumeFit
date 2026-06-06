@@ -22,7 +22,6 @@ from app.repositories.resume_profile_repository import ResumeProfileRepository
 from app.repositories.resume_version_repository import ResumeVersionRepository
 from app.schemas.resume_version import ResumeVersionGenerate, ResumeVersionRead, ResumeWriterAIResult
 
-DEFAULT_USER_ID = 1
 RESUME_WRITER_PROMPT = "resume_writer_v1.md"
 MAX_MARKDOWN_FILENAME_STEM_LENGTH = 80
 WINDOWS_RESERVED_FILENAMES = {
@@ -87,11 +86,11 @@ class ResumeGenerationService:
         self.ai_client = ai_client or AIClient()
         self.prompt_loader = prompt_loader or PromptLoader()
 
-    def generate_resume_version(self, payload: ResumeVersionGenerate) -> ResumeVersionRead:
-        resume_profile = self._get_resume_profile(payload.resume_profile_id)
-        projects = self._get_projects(payload.project_ids)
-        job_description, job_analysis = self._get_job_context(payload)
-        match_report = self._get_match_report(payload.match_report_id)
+    def generate_resume_version(self, payload: ResumeVersionGenerate, *, user_id: int) -> ResumeVersionRead:
+        resume_profile = self._get_resume_profile(payload.resume_profile_id, user_id=user_id)
+        projects = self._get_projects(payload.project_ids, user_id=user_id)
+        job_description, job_analysis = self._get_job_context(payload, user_id=user_id)
+        match_report = self._get_match_report(payload.match_report_id, user_id=user_id)
         self._validate_match_report(
             match_report=match_report,
             resume_profile=resume_profile,
@@ -117,7 +116,7 @@ class ResumeGenerationService:
             raise AIResponseError("AI response JSON did not match the resume writer schema.") from exc
 
         resume_version = self.resume_version_repository.create(
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
             resume_profile_id=resume_profile.id,
             job_description_id=job_description.id,
             match_report_id=match_report.id,
@@ -131,21 +130,21 @@ class ResumeGenerationService:
         )
         return self._to_read_model(resume_version)
 
-    def list_resume_versions(self) -> list[ResumeVersionRead]:
+    def list_resume_versions(self, *, user_id: int) -> list[ResumeVersionRead]:
         return [
             self._to_read_model(resume_version)
-            for resume_version in self.resume_version_repository.list_by_user(user_id=DEFAULT_USER_ID)
+            for resume_version in self.resume_version_repository.list_by_user(user_id=user_id)
         ]
 
-    def export_resume_version_markdown(self, *, resume_version_id: int) -> MarkdownExport:
+    def export_resume_version_markdown(self, *, resume_version_id: int, user_id: int) -> MarkdownExport:
         resume_version = self.resume_version_repository.get_by_id_for_user(
             resume_version_id=resume_version_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if resume_version is None:
             raise ResumeGenerationNotFoundError("Resume version was not found.")
 
-        title_source = self._get_markdown_export_title_source(resume_version)
+        title_source = self._get_markdown_export_title_source(resume_version, user_id=user_id)
         filename = self._build_markdown_export_filename(
             title_source=title_source,
             resume_version=resume_version,
@@ -156,34 +155,34 @@ class ResumeGenerationService:
             content_disposition=self._build_content_disposition(filename),
         )
 
-    def _get_resume_profile(self, resume_profile_id: int) -> ResumeProfile:
+    def _get_resume_profile(self, resume_profile_id: int, *, user_id: int) -> ResumeProfile:
         resume_profile = self.resume_profile_repository.get_by_id_for_user(
             resume_profile_id=resume_profile_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if resume_profile is None:
             raise ResumeGenerationNotFoundError("Resume profile was not found.")
         return resume_profile
 
-    def _get_projects(self, project_ids: list[int]) -> list[Project]:
-        projects = self.project_repository.list_by_ids_for_user(project_ids=project_ids, user_id=DEFAULT_USER_ID)
+    def _get_projects(self, project_ids: list[int], *, user_id: int) -> list[Project]:
+        projects = self.project_repository.list_by_ids_for_user(project_ids=project_ids, user_id=user_id)
         found_project_ids = {project.id for project in projects}
         missing_project_ids = [project_id for project_id in project_ids if project_id not in found_project_ids]
         if missing_project_ids:
             raise ResumeGenerationNotFoundError("One or more projects were not found.")
         return sorted(projects, key=lambda project: project_ids.index(project.id))
 
-    def _get_job_context(self, payload: ResumeVersionGenerate) -> tuple[JobDescription, JobAnalysis]:
+    def _get_job_context(self, payload: ResumeVersionGenerate, *, user_id: int) -> tuple[JobDescription, JobAnalysis]:
         if payload.job_analysis_id is not None:
             job_analysis = self.job_analysis_repository.get_by_id(job_analysis_id=payload.job_analysis_id)
             if job_analysis is None:
                 raise ResumeGenerationNotFoundError("Job analysis was not found.")
             job_description = self.job_description_repository.get_by_id_for_user(
                 job_description_id=job_analysis.job_description_id,
-                user_id=DEFAULT_USER_ID,
+                user_id=user_id,
             )
             if job_description is None:
-                raise ResumeGenerationNotFoundError("Job description was not found.")
+                raise ResumeGenerationNotFoundError("Job analysis was not found.")
             return job_description, job_analysis
 
         if payload.job_description_id is None:
@@ -191,7 +190,7 @@ class ResumeGenerationService:
 
         job_description = self.job_description_repository.get_by_id_for_user(
             job_description_id=payload.job_description_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if job_description is None:
             raise ResumeGenerationNotFoundError("Job description was not found.")
@@ -201,10 +200,10 @@ class ResumeGenerationService:
             raise JobAnalysisRequiredError("Job description has not been analyzed yet.")
         return job_description, job_analysis
 
-    def _get_match_report(self, match_report_id: int) -> MatchReport:
+    def _get_match_report(self, match_report_id: int, *, user_id: int) -> MatchReport:
         match_report = self.match_report_repository.get_by_id_for_user(
             match_report_id=match_report_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if match_report is None:
             raise ResumeGenerationNotFoundError("Match report was not found.")
@@ -228,13 +227,13 @@ class ResumeGenerationService:
         if sorted(self._from_json_int_list(match_report.project_ids_json)) != sorted(project_ids):
             raise ResumeGenerationValidationError("Match report does not belong to the selected projects.")
 
-    def _get_markdown_export_title_source(self, resume_version: ResumeVersion) -> str:
+    def _get_markdown_export_title_source(self, resume_version: ResumeVersion, *, user_id: int) -> str:
         if resume_version.job_description_id is None:
             return resume_version.title
 
         job_description = self.job_description_repository.get_by_id_for_user(
             job_description_id=resume_version.job_description_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if job_description is None:
             return resume_version.title
