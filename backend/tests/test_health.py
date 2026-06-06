@@ -1321,6 +1321,63 @@ def test_create_truth_check_result_with_mock_ai(
     assert list_truth_checks_response.json()[0]["id"] == result["id"]
 
 
+def test_truth_checks_require_login(anonymous_client: TestClient) -> None:
+    create_response = anonymous_client.post("/truth-check-results", json={"resume_version_id": 1})
+    list_response = anonymous_client.get("/truth-check-results?resume_version_id=1")
+
+    assert create_response.status_code == 401
+    assert list_response.status_code == 401
+
+
+def test_truth_checks_are_isolated_by_user(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    user_a_token = _register_test_user(client, email="truth-a@example.com")
+    user_b_token = _register_test_user(client, email="truth-b@example.com")
+    user_a_headers = _auth_headers(user_a_token)
+    user_b_headers = _auth_headers(user_b_token)
+
+    ids = _resume_version_context(client, monkeypatch, headers=user_a_headers)
+    resume_version_id = _create_generated_resume_version(client, ids, headers=user_a_headers)
+
+    def fake_truth_chat_json(self: AIClient, **_: object) -> dict[str, object]:
+        return {
+            "overall_risk_level": "low",
+            "risky_statements": [],
+            "safer_rewrites": ["Keep wording grounded in the provided project."],
+            "missing_evidence": [],
+            "interview_risk_points": ["Explain the demo scope clearly."],
+            "summary": "User A truth check summary.",
+        }
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_truth_chat_json)
+    user_a_create_response = client.post(
+        "/truth-check-results",
+        headers=user_a_headers,
+        json={"resume_version_id": resume_version_id},
+    )
+    user_b_create_response = client.post(
+        "/truth-check-results",
+        headers=user_b_headers,
+        json={"resume_version_id": resume_version_id},
+    )
+    user_a_list_response = client.get(
+        f"/truth-check-results?resume_version_id={resume_version_id}",
+        headers=user_a_headers,
+    )
+    user_b_list_response = client.get(
+        f"/truth-check-results?resume_version_id={resume_version_id}",
+        headers=user_b_headers,
+    )
+
+    assert user_a_create_response.status_code == 201
+    assert user_a_create_response.json()["summary"] == "User A truth check summary."
+    assert user_b_create_response.status_code == 404
+    assert user_b_create_response.json()["detail"] == "Resume version was not found."
+    assert user_a_list_response.status_code == 200
+    assert [result["id"] for result in user_a_list_response.json()] == [user_a_create_response.json()["id"]]
+    assert user_b_list_response.status_code == 404
+    assert user_b_list_response.json()["detail"] == "Resume version was not found."
+
+
 def test_truth_check_returns_not_found_for_missing_resume_version(client: TestClient) -> None:
     create_response = client.post("/truth-check-results", json={"resume_version_id": 999})
     list_response = client.get("/truth-check-results?resume_version_id=999")
@@ -1472,6 +1529,97 @@ def test_create_interview_question_result_with_mock_ai(
     list_response = client.get(f"/interview-question-results?resume_version_id={resume_version_id}")
     assert list_response.status_code == 200
     assert list_response.json()[0]["id"] == result["id"]
+
+
+def test_interview_questions_require_login(anonymous_client: TestClient) -> None:
+    create_response = anonymous_client.post("/interview-question-results", json={"resume_version_id": 1})
+    list_response = anonymous_client.get("/interview-question-results?resume_version_id=1")
+
+    assert create_response.status_code == 401
+    assert list_response.status_code == 401
+
+
+def test_interview_questions_are_isolated_by_user(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    user_a_token = _register_test_user(client, email="interview-a@example.com")
+    user_b_token = _register_test_user(client, email="interview-b@example.com")
+    user_a_headers = _auth_headers(user_a_token)
+    user_b_headers = _auth_headers(user_b_token)
+
+    ids = _resume_version_context(client, monkeypatch, headers=user_a_headers)
+    resume_version_id = _create_generated_resume_version(client, ids, headers=user_a_headers)
+
+    def fake_truth_chat_json(self: AIClient, **_: object) -> dict[str, object]:
+        return {
+            "overall_risk_level": "medium",
+            "risky_statements": [],
+            "safer_rewrites": ["Use conservative wording for the demo project."],
+            "missing_evidence": [],
+            "interview_risk_points": ["User A should explain the demo scope."],
+            "summary": "User A truth check summary.",
+        }
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_truth_chat_json)
+    truth_response = client.post(
+        "/truth-check-results",
+        headers=user_a_headers,
+        json={"resume_version_id": resume_version_id},
+    )
+    assert truth_response.status_code == 201
+
+    def fake_interview_chat_json(
+        self: AIClient,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.2,
+    ) -> dict[str, object]:
+        assert "Interview Question Predictor v1" in system_prompt
+        assert "User A truth check summary." in user_prompt
+        assert "User A should explain the demo scope." in user_prompt
+        assert temperature == 0.2
+        return {
+            "questions": [
+                {
+                    "question": "How did you implement the ResumeFit demo APIs?",
+                    "reason": "The resume emphasizes backend API work.",
+                    "related_resume_section": "ResumeFit Demo project",
+                    "difficulty": "medium",
+                    "suggested_answer": "Describe the demo API endpoints and SQLite persistence honestly.",
+                    "answer_strategy": "Keep the answer tied to provided evidence.",
+                    "risk_reminder": "Do not imply production scale.",
+                }
+            ],
+            "summary": "User A interview question summary.",
+        }
+
+    monkeypatch.setattr(AIClient, "chat_json", fake_interview_chat_json)
+    user_a_create_response = client.post(
+        "/interview-question-results",
+        headers=user_a_headers,
+        json={"resume_version_id": resume_version_id},
+    )
+    user_b_create_response = client.post(
+        "/interview-question-results",
+        headers=user_b_headers,
+        json={"resume_version_id": resume_version_id},
+    )
+    user_a_list_response = client.get(
+        f"/interview-question-results?resume_version_id={resume_version_id}",
+        headers=user_a_headers,
+    )
+    user_b_list_response = client.get(
+        f"/interview-question-results?resume_version_id={resume_version_id}",
+        headers=user_b_headers,
+    )
+
+    assert user_a_create_response.status_code == 201
+    assert user_a_create_response.json()["summary"] == "User A interview question summary."
+    assert user_b_create_response.status_code == 404
+    assert user_b_create_response.json()["detail"] == "Resume version was not found."
+    assert user_a_list_response.status_code == 200
+    assert [result["id"] for result in user_a_list_response.json()] == [user_a_create_response.json()["id"]]
+    assert user_b_list_response.status_code == 404
+    assert user_b_list_response.json()["detail"] == "Resume version was not found."
 
 
 def test_interview_question_returns_not_found_for_missing_resume_version(client: TestClient) -> None:

@@ -27,7 +27,6 @@ from app.schemas.interview_question import (
     InterviewQuestionResultRead,
 )
 
-DEFAULT_USER_ID = 1
 INTERVIEW_QUESTION_PROMPT = "interview_question_v1.md"
 
 
@@ -61,8 +60,10 @@ class InterviewQuestionService:
     def create_interview_question_result(
         self,
         payload: InterviewQuestionCreate,
+        *,
+        user_id: int,
     ) -> InterviewQuestionResultRead:
-        context = self._load_context(payload.resume_version_id)
+        context = self._load_context(payload.resume_version_id, user_id=user_id)
         raw_ai_output = self.ai_client.chat_json(
             system_prompt=self.prompt_loader.load(INTERVIEW_QUESTION_PROMPT),
             user_prompt=self._build_user_prompt(**context),
@@ -75,7 +76,7 @@ class InterviewQuestionService:
             raise AIResponseError("AI response JSON did not match the interview question schema.") from exc
 
         interview_question_result = self.interview_question_repository.create(
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
             resume_version_id=context["resume_version"].id,
             questions_json=self._to_json([item.model_dump() for item in parsed.questions]),
             summary=parsed.summary,
@@ -88,10 +89,11 @@ class InterviewQuestionService:
         self,
         *,
         resume_version_id: int,
+        user_id: int,
     ) -> list[InterviewQuestionResultRead]:
         resume_version = self.resume_version_repository.get_by_id_for_user(
             resume_version_id=resume_version_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if resume_version is None:
             raise InterviewQuestionNotFoundError("Resume version was not found.")
@@ -100,14 +102,14 @@ class InterviewQuestionService:
             self._to_read_model(interview_question_result)
             for interview_question_result in self.interview_question_repository.list_by_resume_version_for_user(
                 resume_version_id=resume_version_id,
-                user_id=DEFAULT_USER_ID,
+                user_id=user_id,
             )
         ]
 
-    def _load_context(self, resume_version_id: int) -> dict[str, object]:
+    def _load_context(self, resume_version_id: int, *, user_id: int) -> dict[str, object]:
         resume_version = self.resume_version_repository.get_by_id_for_user(
             resume_version_id=resume_version_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if resume_version is None:
             raise InterviewQuestionNotFoundError("Resume version was not found.")
@@ -116,7 +118,7 @@ class InterviewQuestionService:
 
         match_report = self.match_report_repository.get_by_id_for_user(
             match_report_id=resume_version.match_report_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if match_report is None:
             raise InterviewQuestionNotFoundError("Match report was not found.")
@@ -124,14 +126,14 @@ class InterviewQuestionService:
 
         resume_profile = self.resume_profile_repository.get_by_id_for_user(
             resume_profile_id=resume_version.resume_profile_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if resume_profile is None:
             raise InterviewQuestionNotFoundError("Resume profile was not found.")
 
         job_description = self.job_description_repository.get_by_id_for_user(
             job_description_id=match_report.job_description_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if job_description is None:
             raise InterviewQuestionNotFoundError("Job description was not found.")
@@ -143,14 +145,14 @@ class InterviewQuestionService:
         project_ids = self._from_json_int_list(match_report.project_ids_json)
         if not project_ids:
             raise InterviewQuestionValidationError("Match report does not include selected project IDs.")
-        projects = self.project_repository.list_by_ids_for_user(project_ids=project_ids, user_id=DEFAULT_USER_ID)
+        projects = self.project_repository.list_by_ids_for_user(project_ids=project_ids, user_id=user_id)
         found_project_ids = {project.id for project in projects}
         if any(project_id not in found_project_ids for project_id in project_ids):
             raise InterviewQuestionNotFoundError("One or more projects were not found.")
 
         truth_check_results = self.truth_check_repository.list_by_resume_version_for_user(
             resume_version_id=resume_version.id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
 
         return {

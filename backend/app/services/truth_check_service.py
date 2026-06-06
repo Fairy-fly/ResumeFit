@@ -21,7 +21,6 @@ from app.repositories.resume_version_repository import ResumeVersionRepository
 from app.repositories.truth_check_repository import TruthCheckRepository
 from app.schemas.truth_check import TruthCheckAIResult, TruthCheckCreate, TruthCheckResultRead
 
-DEFAULT_USER_ID = 1
 TRUTH_CHECKER_PROMPT = "truth_checker_v1.md"
 
 
@@ -51,8 +50,8 @@ class TruthCheckService:
         self.ai_client = ai_client or AIClient()
         self.prompt_loader = prompt_loader or PromptLoader()
 
-    def create_truth_check_result(self, payload: TruthCheckCreate) -> TruthCheckResultRead:
-        context = self._load_context(payload.resume_version_id)
+    def create_truth_check_result(self, payload: TruthCheckCreate, *, user_id: int) -> TruthCheckResultRead:
+        context = self._load_context(payload.resume_version_id, user_id=user_id)
         raw_ai_output = self.ai_client.chat_json(
             system_prompt=self.prompt_loader.load(TRUTH_CHECKER_PROMPT),
             user_prompt=self._build_user_prompt(**context),
@@ -65,7 +64,7 @@ class TruthCheckService:
             raise AIResponseError("AI response JSON did not match the truth check schema.") from exc
 
         truth_check_result = self.truth_check_repository.create(
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
             resume_version_id=context["resume_version"].id,
             overall_risk_level=parsed.overall_risk_level,
             risky_statements_json=self._to_json([item.model_dump() for item in parsed.risky_statements]),
@@ -78,10 +77,10 @@ class TruthCheckService:
         )
         return self._to_read_model(truth_check_result)
 
-    def list_truth_check_results(self, *, resume_version_id: int) -> list[TruthCheckResultRead]:
+    def list_truth_check_results(self, *, resume_version_id: int, user_id: int) -> list[TruthCheckResultRead]:
         resume_version = self.resume_version_repository.get_by_id_for_user(
             resume_version_id=resume_version_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if resume_version is None:
             raise TruthCheckNotFoundError("Resume version was not found.")
@@ -90,14 +89,14 @@ class TruthCheckService:
             self._to_read_model(truth_check_result)
             for truth_check_result in self.truth_check_repository.list_by_resume_version_for_user(
                 resume_version_id=resume_version_id,
-                user_id=DEFAULT_USER_ID,
+                user_id=user_id,
             )
         ]
 
-    def _load_context(self, resume_version_id: int) -> dict[str, object]:
+    def _load_context(self, resume_version_id: int, *, user_id: int) -> dict[str, object]:
         resume_version = self.resume_version_repository.get_by_id_for_user(
             resume_version_id=resume_version_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if resume_version is None:
             raise TruthCheckNotFoundError("Resume version was not found.")
@@ -106,7 +105,7 @@ class TruthCheckService:
 
         match_report = self.match_report_repository.get_by_id_for_user(
             match_report_id=resume_version.match_report_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if match_report is None:
             raise TruthCheckNotFoundError("Match report was not found.")
@@ -114,14 +113,14 @@ class TruthCheckService:
 
         resume_profile = self.resume_profile_repository.get_by_id_for_user(
             resume_profile_id=resume_version.resume_profile_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if resume_profile is None:
             raise TruthCheckNotFoundError("Resume profile was not found.")
 
         job_description = self.job_description_repository.get_by_id_for_user(
             job_description_id=match_report.job_description_id,
-            user_id=DEFAULT_USER_ID,
+            user_id=user_id,
         )
         if job_description is None:
             raise TruthCheckNotFoundError("Job description was not found.")
@@ -133,7 +132,7 @@ class TruthCheckService:
         project_ids = self._from_json_int_list(match_report.project_ids_json)
         if not project_ids:
             raise TruthCheckValidationError("Match report does not include selected project IDs.")
-        projects = self.project_repository.list_by_ids_for_user(project_ids=project_ids, user_id=DEFAULT_USER_ID)
+        projects = self.project_repository.list_by_ids_for_user(project_ids=project_ids, user_id=user_id)
         found_project_ids = {project.id for project in projects}
         if any(project_id not in found_project_ids for project_id in project_ids):
             raise TruthCheckNotFoundError("One or more projects were not found.")
