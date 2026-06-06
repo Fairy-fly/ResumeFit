@@ -84,6 +84,100 @@ def test_health_check(client: TestClient) -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_account_me_requires_login(anonymous_client: TestClient) -> None:
+    get_response = anonymous_client.get("/account/me")
+    patch_response = anonymous_client.patch("/account/me", json={"display_name": "New Name"})
+
+    assert get_response.status_code == 401
+    assert patch_response.status_code == 401
+
+
+def test_account_me_returns_current_user_and_usage_summary(client: TestClient) -> None:
+    token = _register_test_user(client, email="account-reader@example.com")
+
+    response = client.get("/account/me", headers=_auth_headers(token))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["email"] == "account-reader@example.com"
+    assert payload["display_name"] == "account-reader@example.com"
+    assert payload["status"] == "active"
+    assert payload["created_at"]
+    assert payload["updated_at"]
+    assert payload["usage_summary"]["monthly_used"] == 0
+    assert payload["usage_summary"]["recent_calls"] == []
+
+
+def test_account_me_updates_display_name_and_auth_me_reflects_it(client: TestClient) -> None:
+    token = _register_test_user(client, email="account-update@example.com")
+    headers = _auth_headers(token)
+
+    update_response = client.patch("/account/me", headers=headers, json={"display_name": "  新昵称  "})
+    account_response = client.get("/account/me", headers=headers)
+    auth_response = client.get("/auth/me", headers=headers)
+
+    assert update_response.status_code == 200
+    assert update_response.json()["display_name"] == "新昵称"
+    assert account_response.json()["display_name"] == "新昵称"
+    assert auth_response.json()["display_name"] == "新昵称"
+
+
+def test_account_display_name_update_is_isolated_by_user(client: TestClient) -> None:
+    user_a_token = _register_test_user(client, email="account-a@example.com")
+    user_b_token = _register_test_user(client, email="account-b@example.com")
+
+    user_a_response = client.patch(
+        "/account/me",
+        headers=_auth_headers(user_a_token),
+        json={"display_name": "User A New Name"},
+    )
+    user_b_response = client.get("/account/me", headers=_auth_headers(user_b_token))
+
+    assert user_a_response.status_code == 200
+    assert user_a_response.json()["display_name"] == "User A New Name"
+    assert user_b_response.status_code == 200
+    assert user_b_response.json()["display_name"] == "account-b@example.com"
+
+
+def test_account_display_name_validation(client: TestClient) -> None:
+    token = _register_test_user(client, email="account-validation@example.com")
+    headers = _auth_headers(token)
+
+    empty_response = client.patch("/account/me", headers=headers, json={"display_name": ""})
+    blank_response = client.patch("/account/me", headers=headers, json={"display_name": "   "})
+    long_response = client.patch("/account/me", headers=headers, json={"display_name": "a" * 51})
+
+    assert empty_response.status_code == 422
+    assert blank_response.status_code == 422
+    assert long_response.status_code == 422
+
+
+def test_account_update_ignores_forbidden_fields(client: TestClient) -> None:
+    token = _register_test_user(client, email="account-forbidden@example.com")
+    headers = _auth_headers(token)
+
+    response = client.patch(
+        "/account/me",
+        headers=headers,
+        json={
+            "display_name": "Allowed Name",
+            "email": "changed@example.com",
+            "status": "disabled",
+            "password_hash": "plain-text-should-not-apply",
+            "role": "admin",
+            "monthly_quota": 999999,
+        },
+    )
+    auth_response = client.get("/auth/me", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] == "Allowed Name"
+    assert response.json()["email"] == "account-forbidden@example.com"
+    assert response.json()["status"] == "active"
+    assert auth_response.json()["email"] == "account-forbidden@example.com"
+    assert auth_response.json()["status"] == "active"
+
+
 def test_dashboard_summary_starts_empty(client: TestClient) -> None:
     response = client.get("/dashboard/summary")
 

@@ -26,3 +26,10 @@ class UserRepository:
 
     def get_by_id(self, *, user_id: int) -> User | None:
         return self.db.get(User, user_id)
+
+    def update_display_name(self, *, user: User, display_name: str) -> User:
+        user.display_name = display_name
+        self.db.add(user)
+        self.db.commit()
+        self.db.refresh(user)
+        return user
