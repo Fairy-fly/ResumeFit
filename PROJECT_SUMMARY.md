@@ -149,6 +149,7 @@ AI_MODEL=deepseek-chat
 - Prompt 独立管理：核心 Prompt 放在 `prompts/` 目录，便于迭代。
 - 注重真实性：多处约束“不编造经历、不夸大成果、不把未提供技能写成已掌握”。
 - 结果可追溯：AI 原始 JSON、修改原因、匹配报告和风险检测结果均可保存。
+- 多用户基础能力：V0.3 已支持注册、登录、JWT Bearer Token 鉴权和用户数据隔离。
 - 适合 Demo：页面流程清晰，首页提供完整演示路径。
 
 ## 12. 已完成模块
@@ -162,10 +163,36 @@ AI_MODEL=deepseek-chat
 7. 真实性风险检测模块。
 8. 面试追问预测模块。
 9. Markdown 导出模块。
+10. 多用户注册登录与数据隔离。
 
-## 13. 可扩展方向
+## 13. V0.3 多用户基础版
 
-- 用户登录与云端同步。
+V0.3 将 ResumeFit 从本地 Demo 单用户模式推进到多用户基础版：
+
+- 后端支持 `/auth/register`、`/auth/login`、`/auth/me`。
+- 鉴权方式为 JWT Bearer Token。
+- 前端通过 `localStorage` 保存 `access_token`。
+- 前端 API client 自动携带 `Authorization: Bearer <token>`。
+- 未登录访问业务页会跳转 `/login`。
+- `/login` 和 `/register` 使用独立认证布局。
+- 两个用户之间的简历、项目、JD、匹配报告、简历版本、真实性检测、面试追问互不可见。
+- Markdown 导出也受用户权限限制，不能导出其他用户的简历版本。
+
+V0.3 验收结果：
+
+- `backend pytest`：`66 passed, 3 warnings`
+- `frontend npm run build`：passed
+- 双账号完整流程验收通过。
+
+当前稳定标签：
+
+- `v0.1-demo-mvp`
+- `v0.2-product-experience`
+- `v0.3-multi-user`
+
+## 14. 可扩展方向
+
+- 更完整的云端同步和会话管理。
 - PostgreSQL 替换 SQLite。
 - PDF/Word 导出。
 - 更多简历模板。
@@ -175,8 +202,8 @@ AI_MODEL=deepseek-chat
 - 更完整的权限、会员和支付系统。
 - 招聘网站数据接入，但需要在隐私和合规基础上谨慎设计。
 
-## 14. 总结
+## 15. 总结
 
-ResumeFit 当前完成了一个可演示的智能简历定制 Demo。项目重点不在于把功能做得很复杂，而在于证明一条清晰的产品链路：用户提供真实资料，系统分析岗位需求，生成匹配报告和定制简历，再通过真实性风险检测和面试追问帮助用户更稳妥地准备投递与面试。
+ResumeFit 当前已经从可演示的智能简历定制 Demo 演进到 V0.3 多用户基础版。项目重点不在于把功能做得很复杂，而在于证明一条清晰的产品链路：用户提供真实资料，系统分析岗位需求，生成匹配报告和定制简历，再通过真实性风险检测和面试追问帮助用户更稳妥地准备投递与面试。
 
-从工程角度看，项目使用 Vue 3、FastAPI、SQLite 和 OpenAI-compatible AI service，结构清晰，功能边界明确，后续可以继续向商业化软件演进。
+从工程角度看，项目使用 Vue 3、FastAPI、SQLite 和 OpenAI-compatible AI service，已经具备基础认证和用户隔离能力，功能边界明确，后续可以继续向商业化软件演进。

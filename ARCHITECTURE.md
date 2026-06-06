@@ -277,12 +277,38 @@ MVP 使用 SQLite，适合本地 Demo 和单用户/少量用户验证。
 - 用户简历内容属于敏感数据，日志中避免打印完整原文。
 - AI 请求和响应可在 Demo 阶段做最小记录，商业化前必须增加隐私策略和数据删除能力。
 
+### V0.3 认证与用户隔离
+
+V0.3 已接入多用户基础能力：
+
+- 后端提供 `/auth/register`、`/auth/login`、`/auth/me`。
+- 鉴权方式为 JWT Bearer Token。
+- `JWT_SECRET_KEY`、`JWT_ALGORITHM`、`ACCESS_TOKEN_EXPIRE_MINUTES` 从环境变量读取。
+- 密码只保存哈希，不保存明文密码。
+- 前端将 `access_token` 保存到 `localStorage`。
+- API client 在有 token 时自动携带 `Authorization: Bearer <token>`。
+- 业务 route 通过 `get_current_user` 获取当前用户，再把 `current_user.id` 传入 service。
+- service/repository 使用 `user_id` 过滤用户数据，避免跨用户读取。
+
+已完成用户隔离的数据范围：
+
+- 通用简历 `ResumeProfile`
+- 项目经历 `Project`
+- 岗位 JD `JobDescription`
+- 匹配报告 `MatchReport`
+- 简历版本 `ResumeVersion`
+- Markdown 导出
+- 真实性风险检测 `TruthCheckResult`
+- 面试追问预测 `InterviewQuestionResult`
+
+跨表生成流程也必须遵守用户隔离。例如生成匹配报告时，所选简历、项目和 JD 必须属于当前用户；生成简历版本、真实性检测和面试追问时，关联的报告、版本、项目、JD 和分析结果也必须归属于当前用户。
+
 ## 10. 后续商业化扩展点
 
 - `BillingService`：会员、套餐、支付。
 - `ExportService`：PDF、Word、多模板导出。
 - `ProviderRegistry`：多 AI 模型和供应商管理。
-- `AuthService`：登录、注册、OAuth。
+- `AuthService`：当前已支持基础注册、登录、JWT，后续可扩展 OAuth、Refresh Token、会话管理和找回密码。
 - `UsageTrackingService`：调用次数、额度、成本统计。
 - `TemplateService`：简历模板和样式。
 - `ApplicationTracker`：投递进度管理。

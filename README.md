@@ -465,14 +465,29 @@ Remove-Item backend/resumefit.db -ErrorAction SilentlyContinue
 - 不要提交真实 `.env` 或真实 `AI_API_KEY`。
 - `.env.example` 中只能保留占位符，例如 `AI_API_KEY=your_deepseek_api_key_here`。
 - AI 调用依赖网络和模型服务，如果现场调用失败，可展示错误提示、Prompt 文件和 mock 测试通过结果。
-- V0.3 已开始引入后端基础认证；当前业务数据接口仍保留 Demo `user_id = 1`，后续任务会逐步替换为当前登录用户。
+- V0.3 已完成多用户基础版：注册、登录、JWT 鉴权、前端登录状态和核心业务数据用户隔离均已接入。
 - 如果本地 SQLite 表结构和最新模型不一致，Demo 阶段可以删除 `backend/resumefit.db` 后重启后端重建。
 - 不要提交 `.venv/`、`node_modules/`、`dist/`、`.pytest_cache/`、`__pycache__/` 或 `frontend/tsconfig.tsbuildinfo` 等环境和构建缓存。
 - MVP 不包含 PDF/Word 导出、支付、会员、招聘网站爬取、自动投递、手机 APP 或企业后台。
 
-## V0.3 基础认证说明
+## V0.3 多用户基础版说明
 
-V0.3 开始引入后端基础认证能力，当前已提供注册、登录和当前用户接口，为后续把业务数据从 Demo `user_id = 1` 切换到当前登录用户做准备。本轮只完成认证底座，暂不替换现有业务接口中的 Demo 用户逻辑。
+V0.3 已支持多用户注册登录。后端使用 JWT Bearer Token 鉴权，前端将 `access_token` 保存到 `localStorage`，并在 API 请求中自动携带：
+
+```text
+Authorization: Bearer <access_token>
+```
+
+当前已经完成用户数据隔离。两个用户之间的以下数据互不可见，也不能通过 ID 越权访问：
+
+- 通用简历 `/resume-profiles`
+- 项目经历 `/projects`
+- 岗位 JD `/job-descriptions`
+- 匹配报告 `/match-reports`
+- 简历版本 `/resume-versions`
+- Markdown 导出 `/resume-versions/{id}/export/markdown`
+- 真实性风险检测 `/truth-check-results`
+- 面试追问预测 `/interview-question-results`
 
 后端 `.env` 需要增加：
 
@@ -498,6 +513,18 @@ Swagger 测试步骤：
 4. 在 Swagger 右上角点击 Authorize，填写 `Bearer <access_token>`。
 5. 调用 `GET /auth/me`，应返回当前用户信息。
 6. 也可以调用 `POST /auth/login` 验证密码登录流程。
+
+### V0.3 验收结果
+
+- `backend pytest`：`66 passed, 3 warnings`
+- `frontend npm run build`：passed
+- 双账号完整流程验收通过：用户 A 和用户 B 的简历、项目、JD、报告、版本、真实性检测、面试追问和 Markdown 导出均已验证隔离。
+
+### 当前稳定标签
+
+- `v0.1-demo-mvp`
+- `v0.2-product-experience`
+- `v0.3-multi-user`
 
 ## MVP 不做什么
 
