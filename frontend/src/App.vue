@@ -14,7 +14,8 @@ const navItems = [
   { label: "岗位 JD", to: "/jobs" },
   { label: "匹配分析", to: "/analysis" },
   { label: "简历版本", to: "/versions" },
-  { label: "用量统计", to: "/usage" }
+  { label: "用量统计", to: "/usage" },
+  { label: "个人中心", to: "/account" }
 ];
 
 const isAuthPage = computed(() => route.path === "/login" || route.path === "/register");

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 
+import AccountPage from "../pages/AccountPage.vue";
 import AnalysisWorkspacePage from "../pages/AnalysisWorkspacePage.vue";
 import DashboardPage from "../pages/DashboardPage.vue";
 import JobDescriptionsPage from "../pages/JobDescriptionsPage.vue";
@@ -21,6 +22,7 @@ export const router = createRouter({
     { path: "/analysis", component: AnalysisWorkspacePage },
     { path: "/versions", component: ResumeVersionsPage },
     { path: "/usage", component: UsagePage },
+    { path: "/account", component: AccountPage },
     { path: "/login", component: LoginPage, meta: { public: true, guestOnly: true } },
     { path: "/register", component: RegisterPage, meta: { public: true, guestOnly: true } }
   ]

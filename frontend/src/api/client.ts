@@ -55,6 +55,23 @@ export async function apiPost<TRequest, TResponse>(path: string, payload: TReque
   return parseJson<TResponse>(response);
 }
 
+export async function apiPatch<TRequest, TResponse>(path: string, payload: TRequest): Promise<TResponse> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...buildAuthHeaders()
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw await buildError(response);
+  }
+
+  return parseJson<TResponse>(response);
+}
+
 export function buildAuthHeaders(): Record<string, string> {
   const token = window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
   return token ? { Authorization: `Bearer ${token}` } : {};

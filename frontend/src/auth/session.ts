@@ -34,6 +34,11 @@ export function saveSession(response: AuthTokenResponse): void {
   authSession.initialized = true;
 }
 
+export function setCurrentUser(user: AuthUser): void {
+  authSession.user = user;
+  authSession.initialized = true;
+}
+
 export function clearSession(): void {
   window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
   authSession.token = null;
