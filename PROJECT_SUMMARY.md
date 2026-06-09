@@ -217,4 +217,32 @@ V0.4 为后续商业化补充用量基础设施，但不实现支付、会员套
 
 ResumeFit 当前已经从可演示的智能简历定制 Demo 演进到 V0.4 用量基础版。项目重点不在于把功能做得很复杂，而在于证明一条清晰的产品链路：用户提供真实资料，系统分析岗位需求，生成匹配报告和定制简历，再通过真实性风险检测和面试追问帮助用户更稳妥地准备投递与面试。
 
-从工程角度看，项目使用 Vue 3、FastAPI、SQLite 和 OpenAI-compatible AI service，已经具备基础认证、用户隔离、AI 用量统计和基础额度能力，功能边界明确，后续可以继续向商业化软件演进。
+从工程角度看，项目使用 Vue 3、FastAPI、SQLite 和 OpenAI-compatible AI service，已经具备基础认证、用户隔离、AI 用量统计、基础额度和个人中心能力，功能边界明确，后续可以继续向商业化软件演进。
+
+## 15. V0.5 个人中心与账户设置
+
+V0.5 在多用户与用量统计基础上补齐个人账户体验，让用户能够查看自己的账户信息和基础用量概览，并修改显示昵称。
+
+已完成内容：
+
+- 新增 `/account` 个人中心页面。
+- 新增 `GET /account/me`，聚合返回当前用户账户信息与 `usage_summary`。
+- 新增 `PATCH /account/me`，只允许当前用户修改自己的 `display_name`。
+- 页面展示 `email`、`display_name`、`status`、`created_at`、`updated_at` 和 V0.4 `usage_summary`。
+- 修改昵称后，页面和 Sidebar 当前用户昵称同步更新。
+- 个人中心可跳转 `/usage` 查看详细用量。
+- 商业化入口仅做静态预留说明，不包含支付、会员套餐或订单。
+
+V0.5 验收结果：
+
+- backend pytest：`78 passed, 3 warnings`
+- frontend npm run build：passed
+- 未登录访问 `/account` 会跳转登录页。
+- 账户接口只读取和修改当前登录用户的数据。
+
+当前稳定标签：
+
+- `v0.1-demo-mvp`
+- `v0.2-product-experience`
+- `v0.3-multi-user`
+- `v0.4-ai-usage-quota`

@@ -258,6 +258,48 @@ V0.3 多用户基础版已完成验收：
 - `v0.2-product-experience`
 - `v0.3-multi-user`
 
+## 9. V0.5 个人中心演示
+
+V0.5 新增 `/account` 个人中心页面，用于展示当前登录用户的账户信息、基础用量概览和昵称设置。
+
+### 演示步骤
+
+1. 启动后端和前端，并使用已有账号登录。
+2. 在左侧 Sidebar 点击“个人中心”。
+3. 确认页面展示：
+   - 邮箱 `email`
+   - 昵称 `display_name`
+   - 账号状态 `status`
+   - 创建时间 `created_at`
+   - 更新时间 `updated_at`
+   - 用量概览 `usage_summary`
+4. 修改昵称并点击保存。
+5. 确认页面昵称更新，左侧 Sidebar 当前用户名称也同步更新。
+6. 点击“查看详细用量”，确认跳转到 `/usage`。
+7. 说明“会员与额度管理后续开放”只是静态预留，不包含支付、会员套餐或订单功能。
+
+### API 演示
+
+登录后可在 FastAPI docs 中测试账户接口：
+
+- 后端 Swagger 地址：`http://localhost:8000/docs`
+- `GET /account/me`：查看当前用户账户信息和 `usage_summary`。
+- `PATCH /account/me`：只修改当前用户 `display_name`。
+
+V0.5 验收结果：
+
+- backend pytest：`78 passed, 3 warnings`
+- frontend npm run build：passed
+- `/account` 未登录访问会跳转 `/login`
+- 昵称修改后 `/auth/me` 和 Sidebar 均显示新昵称
+
+当前稳定标签：
+
+- `v0.1-demo-mvp`
+- `v0.2-product-experience`
+- `v0.3-multi-user`
+- `v0.4-ai-usage-quota`
+
 ## 9. 演示前准备建议
 
 - 提前配置 `.env`，不要把真实 API Key 提交到仓库。

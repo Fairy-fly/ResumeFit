@@ -167,6 +167,7 @@ Invoke-RestMethod http://localhost:8000/dashboard/summary
 - [PPT_OUTLINE.md](PPT_OUTLINE.md)：12 页左右答辩 PPT 大纲。
 - [ACCEPTANCE_CHECKLIST.md](ACCEPTANCE_CHECKLIST.md)：提交前验收检查表。
 - [V0.4_ACCEPTANCE_CHECKLIST.md](V0.4_ACCEPTANCE_CHECKLIST.md)：AI 用量与基础额度验收清单。
+- [V0.5_ACCEPTANCE_CHECKLIST.md](V0.5_ACCEPTANCE_CHECKLIST.md)：个人中心与账户设置验收清单。
 
 ## 通用简历输入模块测试
 
@@ -554,6 +555,44 @@ AI_OUTPUT_TOKEN_PRICE_PER_1K=0
 - `GET /usage/summary`：需要登录，返回当前用户的 AI 用量统计。
 
 注意：额度单位是“AI 调用次数”，不是会员套餐或付费订单。V0.4 只为后续商业化打基础。
+
+## V0.5 个人中心与账户设置
+
+V0.5 在 V0.3 多用户基础和 V0.4 用量统计基础上，新增个人中心能力，用于展示当前登录用户的账户信息、基础用量概览和昵称设置。本阶段仍不包含支付、会员套餐、订单或管理员后台。
+
+### 已完成能力
+
+- 新增前端页面 `/account`，需要登录后访问。
+- 侧边栏新增“个人中心”入口。
+- 新增后端账户接口：
+  - `GET /account/me`：返回当前用户账户信息和 `usage_summary`。
+  - `PATCH /account/me`：只允许修改当前用户自己的 `display_name`。
+- 个人中心展示：
+  - `email`
+  - `display_name`
+  - `status`
+  - `created_at`
+  - `updated_at`
+  - `usage_summary`
+- 支持修改昵称；保存成功后页面数据和 Sidebar 当前用户昵称会同步更新。
+- 展示 V0.4 用量概览，包括本月额度、本月已用、剩余额度和最近 AI 调用记录。
+- 提供“查看详细用量”入口，可跳转 `/usage`。
+- 商业化区域仅为静态预留说明，不包含支付、会员套餐、订单或真实购买入口。
+
+### V0.5 验收结果
+
+- backend pytest：`78 passed, 3 warnings`
+- frontend npm run build：passed
+- `/account` 未登录访问会跳转 `/login`
+- 昵称修改后 `/auth/me` 和 Sidebar 均能显示新昵称
+- 账户接口只返回和修改当前登录用户的数据
+
+### 当前稳定标签
+
+- `v0.1-demo-mvp`
+- `v0.2-product-experience`
+- `v0.3-multi-user`
+- `v0.4-ai-usage-quota`
 
 ## MVP 不做什么
 

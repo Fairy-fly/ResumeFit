@@ -65,6 +65,8 @@ JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
 ```
 
+V0.5 个人中心继续复用 `users` 表，不新增账户设置表。`GET /account/me` 从当前登录用户读取 `email`、`display_name`、`status`、`created_at`、`updated_at`，并聚合 V0.4 `usage_summary`。`PATCH /account/me` 只更新当前用户的 `display_name`，不允许修改 `email`、`status`、`password_hash`、角色或额度字段。
+
 ### resume_profiles
 
 通用简历资料，是生成定制简历的主要事实来源。
