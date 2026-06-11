@@ -7,6 +7,7 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.schemas.resume_version import ResumeVersionGenerate, ResumeVersionRead
 from app.services.ai_usage_service import AIQuotaExceededError
+from app.services.export_service import DOCX_MEDIA_TYPE, ExportNotFoundError, ResumeExportService
 from app.services.resume_generation_service import (
     JobAnalysisRequiredError,
     ResumeGenerationNotFoundError,
@@ -69,5 +70,28 @@ def export_resume_version_markdown(
     return Response(
         content=export.content,
         media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": export.content_disposition},
+    )
+
+
+@router.get("/{resume_version_id}/export/docx")
+def export_resume_version_docx(
+    resume_version_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    service = ResumeExportService(db)
+
+    try:
+        export = service.export_resume_version_docx(
+            resume_version_id=resume_version_id,
+            user_id=current_user.id,
+        )
+    except ExportNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return Response(
+        content=export.content,
+        media_type=DOCX_MEDIA_TYPE,
         headers={"Content-Disposition": export.content_disposition},
     )

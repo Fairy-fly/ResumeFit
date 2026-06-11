@@ -1,6 +1,8 @@
 from collections.abc import Generator
+from io import BytesIO
 
 import pytest
+from docx import Document
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -1573,6 +1575,80 @@ def test_export_resume_version_markdown_sanitizes_filename(
 
 def test_export_resume_version_markdown_returns_not_found(client: TestClient) -> None:
     response = client.get("/resume-versions/999/export/markdown")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Resume version was not found."
+
+
+def test_export_resume_version_docx_requires_login(anonymous_client: TestClient) -> None:
+    response = anonymous_client.get("/resume-versions/1/export/docx")
+
+    assert response.status_code == 401
+
+
+def test_export_resume_version_docx(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+    resume_version_id = _create_generated_resume_version(client, ids)
+    monkeypatch.setattr(
+        AIClient,
+        "chat_json",
+        lambda self, **_: (_ for _ in ()).throw(AssertionError("Export must not call AI.")),
+    )
+
+    response = client.get(f"/resume-versions/{resume_version_id}/export/docx")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    content_disposition = response.headers["content-disposition"]
+    assert "attachment" in content_disposition
+    assert "ResumeFit_Backend_Developer_" in content_disposition
+    assert ".docx" in content_disposition
+
+    document = Document(BytesIO(response.content))
+    exported_text = "\n".join(paragraph.text for paragraph in document.paragraphs)
+    assert "Backend Developer" in exported_text
+    assert "Projects" in exported_text
+    assert "ResumeFit Demo: Built FastAPI APIs and SQLite persistence." in exported_text
+
+
+def test_export_resume_version_docx_isolated_by_user(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user_a_token = _register_test_user(client, email="docx-export-a@example.com")
+    user_b_token = _register_test_user(client, email="docx-export-b@example.com")
+    user_a_headers = _auth_headers(user_a_token)
+    user_b_headers = _auth_headers(user_b_token)
+
+    ids = _resume_version_context(client, monkeypatch, headers=user_a_headers)
+    resume_version_id = _create_generated_resume_version(client, ids, headers=user_a_headers)
+    monkeypatch.setattr(
+        AIClient,
+        "chat_json",
+        lambda self, **_: (_ for _ in ()).throw(AssertionError("Export must not call AI.")),
+    )
+
+    user_b_response = client.get(
+        f"/resume-versions/{resume_version_id}/export/docx",
+        headers=user_b_headers,
+    )
+    user_a_response = client.get(
+        f"/resume-versions/{resume_version_id}/export/docx",
+        headers=user_a_headers,
+    )
+
+    assert user_b_response.status_code == 404
+    assert user_b_response.json()["detail"] == "Resume version was not found."
+    assert user_a_response.status_code == 200
+
+
+def test_export_resume_version_docx_returns_not_found(client: TestClient) -> None:
+    response = client.get("/resume-versions/999/export/docx")
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Resume version was not found."
