@@ -395,6 +395,54 @@ ExportService / python-docx
 DOCX bytes Response
 ```
 
+## V0.8 DOCX 模板架构补充
+
+V0.8 在 V0.7 DOCX 导出链路上增加模板参数与模板渲染器，但不改变权限、AI、用量和数据库结构。
+
+后端导出流程：
+
+```text
+GET /resume-versions/{id}/export/docx?template=modern
+        |
+        v
+FastAPI Query 校验 template
+        |
+        v
+get_current_user
+        |
+        v
+ResumeVersionRepository.get_by_id_for_user
+        |
+        v
+ExportService
+        |
+        v
+MarkdownBlock parser
+        |
+        v
+DocxTemplateRenderer registry
+        |
+        v
+DOCX bytes Response
+```
+
+模板设计：
+
+- `standard`：默认模板，保持 V0.7 简洁版式。
+- `modern`：更强标题层级、更舒适段落间距和轻量强调色。
+- `compact`：更小字号和更紧凑间距，适合压缩页数。
+
+关键约束：
+
+- 支持模板集合固定为 `standard`、`modern`、`compact`。
+- 不传 `template` 时默认 `standard`。
+- 非法模板由请求参数校验返回 `422`。
+- 模板渲染只消费 `ResumeVersion.content_markdown`。
+- 导出不调用 `AIClient`，不调用 `AIUsageService`。
+- 文件继续以内存流返回，不长期保存到公开目录。
+- 权限仍按当前登录用户校验 ResumeVersion 归属。
+```
+
 关键约束：
 
 - DOCX 内容只来自 `ResumeVersion.content_markdown`。
@@ -410,3 +458,7 @@ DOCX bytes Response
 - 不做模板选择 UI。
 - 不做导出历史表。
 - 不新增支付、会员、订单或在线 Word 预览能力。
+
+### V0.8 边界更新说明
+
+V0.7 文档中“暂不提供模板选择 UI”的边界已在 V0.8 解除：当前 `/versions` 页面已支持 `standard`、`modern`、`compact` 三种 DOCX 模板选择。其余边界仍保持不变：不做 PDF 导出、不做在线 Word 预览、不做复杂模板编辑器、不做导出历史、不新增数据库表。

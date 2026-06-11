@@ -44,6 +44,8 @@ export interface ResumeVersionDocxDownload {
   filename: string;
 }
 
+export type ResumeVersionDocxTemplate = "standard" | "modern" | "compact";
+
 export function generateResumeVersion(payload: ResumeVersionGenerate): Promise<ResumeVersionRead> {
   return apiPost<ResumeVersionGenerate, ResumeVersionRead>("/resume-versions/generate", payload);
 }
@@ -59,17 +61,22 @@ export async function downloadResumeVersionMarkdown(
 }
 
 export async function downloadResumeVersionDocx(
-  resumeVersionId: number
+  resumeVersionId: number,
+  template: ResumeVersionDocxTemplate = "standard"
 ): Promise<ResumeVersionDocxDownload> {
-  return downloadResumeVersionExport(resumeVersionId, "docx", "resume-version.docx");
+  return downloadResumeVersionExport(resumeVersionId, "docx", `resume-version-${template}.docx`, {
+    template
+  });
 }
 
 async function downloadResumeVersionExport(
   resumeVersionId: number,
   format: "markdown" | "docx",
-  defaultFilename: string
+  defaultFilename: string,
+  queryParams?: Record<string, string>
 ): Promise<{ blob: Blob; filename: string }> {
-  const response = await fetch(`${API_BASE_URL}/resume-versions/${resumeVersionId}/export/${format}`, {
+  const queryString = queryParams ? `?${new URLSearchParams(queryParams).toString()}` : "";
+  const response = await fetch(`${API_BASE_URL}/resume-versions/${resumeVersionId}/export/${format}${queryString}`, {
     headers: buildAuthHeaders()
   });
 

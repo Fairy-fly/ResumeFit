@@ -729,3 +729,42 @@ V0.7 验收结果：
 - `v0.4-ai-usage-quota`
 - `v0.5-account-center`
 - `v0.6-admin-basic`
+- `v0.7-docx-export`
+- `v0.8-docx-templates`
+
+## V0.8 DOCX 模板增强版
+
+V0.8 在 V0.7 DOCX 导出基础上增加模板选择能力，让用户可以按投递场景导出不同风格的 Word 简历文件。
+
+后端接口保持同一路径，并新增 `template` query 参数：
+
+```http
+GET /resume-versions/{id}/export/docx?template=standard
+GET /resume-versions/{id}/export/docx?template=modern
+GET /resume-versions/{id}/export/docx?template=compact
+```
+
+说明：
+
+- `template` 不传时默认 `standard`。
+- 仅允许 `standard`、`modern`、`compact`，非法值返回 `422`。
+- `standard` 保持默认简洁模板。
+- `modern` 增强标题层次、段落间距和轻量强调色。
+- `compact` 使用更紧凑的字号和段落间距。
+- DOCX 内容仍只来自 `ResumeVersion.content_markdown`。
+- DOCX 导出不调用 AI，不计入 AI 使用额度。
+- DOCX 导出沿用用户隔离，用户只能导出自己的 ResumeVersion。
+- 不新增数据库表，不记录导出历史，不实现 PDF。
+
+前端变化：
+
+- `/versions` 页面在“导出 DOCX”旁新增模板下拉框。
+- 默认模板为 `standard`。
+- Markdown 导出、复制 Markdown、历史版本切换、真实性检测和面试追问保持不变。
+
+V0.8 验收结果：
+
+- 后端测试：`92 passed, 3 warnings`
+- 前端 `npm run build`：通过
+
+当前最新稳定版本：`v0.8-docx-templates`

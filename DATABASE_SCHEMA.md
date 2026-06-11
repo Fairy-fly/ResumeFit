@@ -355,3 +355,30 @@ V0.7 新增 DOCX 简历导出，但不新增数据库表，也不修改现有数
 - DOCX 导出与 Markdown 导出共享同一份简历版本内容来源。
 
 后续如需要统计导出次数或保存模板选择，可再新增 `export_logs` 或 `resume_export_jobs` 等表。
+
+## V0.8 DOCX 模板说明
+
+V0.8 增强 DOCX 导出模板能力，但不新增数据库表，也不修改现有数据库结构。
+
+导出数据来源仍然是：
+
+- `resume_versions.content_markdown`
+
+权限依据仍然是：
+
+- `resume_versions.user_id`
+
+模板参数：
+
+- `standard`
+- `modern`
+- `compact`
+
+说明：
+
+- `template` 是导出接口的 query 参数，不保存到数据库。
+- 不传模板时默认 `standard`。
+- 非法模板由接口参数校验返回 `422`。
+- DOCX 模板选择不调用 AI，不计入 AI 使用额度。
+- 暂不记录导出历史。
+- 如后续需要追踪模板偏好或导出次数，再考虑新增 `export_logs` 或用户设置表。

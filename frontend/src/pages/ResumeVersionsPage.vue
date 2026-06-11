@@ -15,6 +15,7 @@ import {
   downloadResumeVersionMarkdown,
   generateResumeVersion,
   listResumeVersions,
+  type ResumeVersionDocxTemplate,
   type ResumeVersionRead
 } from "../api/resumeVersions";
 import {
@@ -52,6 +53,7 @@ const isCheckingTruth = ref(false);
 const isGeneratingInterviewQuestions = ref(false);
 const isExportingMarkdown = ref(false);
 const isExportingDocx = ref(false);
+const selectedDocxTemplate = ref<ResumeVersionDocxTemplate>("standard");
 const errorMessage = ref("");
 const truthErrorMessage = ref("");
 const interviewErrorMessage = ref("");
@@ -464,7 +466,10 @@ async function exportDocx(): Promise<void> {
   exportErrorMessage.value = "";
 
   try {
-    const { blob, filename } = await downloadResumeVersionDocx(selectedResumeVersion.value.id);
+    const { blob, filename } = await downloadResumeVersionDocx(
+      selectedResumeVersion.value.id,
+      selectedDocxTemplate.value
+    );
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -523,9 +528,11 @@ onMounted(() => {
       :resume-version="selectedResumeVersion"
       :is-exporting-markdown="isExportingMarkdown"
       :is-exporting-docx="isExportingDocx"
+      :selected-docx-template="selectedDocxTemplate"
       :copy-message="copyMessage"
       :export-message="exportMessage"
       :export-error-message="exportErrorMessage"
+      @update:docx-template="selectedDocxTemplate = $event"
       @copy="copyMarkdown"
       @export="exportMarkdown"
       @export-docx="exportDocx"
@@ -710,9 +717,35 @@ onMounted(() => {
 
 .versions-page .action-row {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
+}
+
+.versions-page .docx-template-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.versions-page .docx-template-select select {
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #343944;
+  font: inherit;
+  min-height: 38px;
+  padding: 0 10px;
+}
+
+.versions-page .docx-template-select select:disabled {
+  background: #f2f4f7;
+  color: #98a2b3;
+  cursor: not-allowed;
 }
 
 .versions-page .summary-section,

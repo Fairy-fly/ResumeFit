@@ -11,8 +11,9 @@
 - `v0.5-account-center`
 - `v0.6-admin-basic`
 - `v0.7-docx-export`
+- `v0.8-docx-templates`
 
-当前最新稳定版本：`v0.7-docx-export`
+当前最新稳定版本：`v0.8-docx-templates`
 
 ## 2. 各版本完成内容与能力边界
 
@@ -281,9 +282,53 @@
 - 招聘网站爬取。
 - 头像上传。
 
+### v0.8-docx-templates
+
+完成内容：
+
+- 在 V0.7 DOCX 导出基础上新增模板选择能力。
+- `GET /resume-versions/{id}/export/docx` 支持 `template` query 参数：
+  - `standard`
+  - `modern`
+  - `compact`
+- 不传 `template` 时默认使用 `standard`。
+- 非法模板参数返回 `422`。
+- 后端使用模板渲染器注册表组织三种 DOCX 样式。
+- `standard` 保持 V0.7 默认简洁风格。
+- `modern` 增强标题层次、段落间距和强调色。
+- `compact` 使用更紧凑的字号与段落间距，适合内容较多的简历。
+- 前端 `/versions` 页面在 DOCX 导出按钮旁新增模板下拉选择。
+- DOCX 下载请求继续携带 `Authorization: Bearer <token>`。
+- Markdown 导出、复制 Markdown、历史版本切换、真实性检测和面试追问保持不变。
+
+核心能力边界：
+
+- 仍然只基于已保存的 `ResumeVersion.content_markdown` 生成 DOCX。
+- 模板选择不调用 AI，也不计入 AI 使用额度。
+- 不新增数据库表，不记录导出历史。
+- 权限沿用 V0.3 用户隔离，用户只能导出自己的 ResumeVersion。
+- 导出文件仍以内存流即时返回，不长期保存到公开目录。
+
+验收结果：
+
+- 后端测试：`92 passed, 3 warnings`
+- 前端 `npm run build`：通过
+
+没有做：
+
+- PDF 导出。
+- 在线 Word 预览。
+- 复杂模板编辑器。
+- 拖拽式排版设计器。
+- 导出历史。
+- 新数据库表。
+- 支付。
+- 会员套餐。
+- 订单。
+
 ## 3. 当前最新稳定版本说明
 
-当前最新稳定版本为：`v0.7-docx-export`。
+当前最新稳定版本为：`v0.8-docx-templates`。
 
 该版本已经具备：
 
@@ -298,6 +343,7 @@
 - 个人中心。
 - 管理后台基础版。
 - DOCX 简历导出。
+- DOCX 模板选择。
 
 适合用于：
 
@@ -405,15 +451,14 @@ AI：
 - 导出权限按当前用户隔离。
 - DOCX 导出不调用 AI、不消耗 AI 额度。
 
-## 6. 后续 V0.8 推荐方向
+## 6. 后续 V0.9 推荐方向
 
-推荐方向：导出体验与后台可观测增强。
+推荐方向：PDF 导出与后台可观测增强。
 
 可以考虑：
 
 - PDF 导出。
-- 简历导出模板选择。
-- DOCX 排版增强。
+- DOCX 模板细节继续优化。
 - 更详细的后台用量趋势。
 - 按用户查看功能调用分布。
 - 最近失败 AI 调用列表。

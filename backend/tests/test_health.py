@@ -1606,7 +1606,7 @@ def test_export_resume_version_docx(
     )
     content_disposition = response.headers["content-disposition"]
     assert "attachment" in content_disposition
-    assert "ResumeFit_Backend_Developer_" in content_disposition
+    assert "ResumeFit_Backend_Developer_standard_" in content_disposition
     assert ".docx" in content_disposition
 
     document = Document(BytesIO(response.content))
@@ -1614,6 +1614,44 @@ def test_export_resume_version_docx(
     assert "Backend Developer" in exported_text
     assert "Projects" in exported_text
     assert "ResumeFit Demo: Built FastAPI APIs and SQLite persistence." in exported_text
+
+
+@pytest.mark.parametrize("template", ["standard", "modern", "compact"])
+def test_export_resume_version_docx_templates(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    template: str,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+    resume_version_id = _create_generated_resume_version(client, ids)
+    monkeypatch.setattr(
+        AIClient,
+        "chat_json",
+        lambda self, **_: (_ for _ in ()).throw(AssertionError("Export must not call AI.")),
+    )
+
+    response = client.get(f"/resume-versions/{resume_version_id}/export/docx?template={template}")
+
+    assert response.status_code == 200
+    assert response.content
+    assert f"_{template}_" in response.headers["content-disposition"]
+
+    document = Document(BytesIO(response.content))
+    exported_text = "\n".join(paragraph.text for paragraph in document.paragraphs)
+    assert "Backend Developer" in exported_text
+    assert "ResumeFit Demo: Built FastAPI APIs and SQLite persistence." in exported_text
+
+
+def test_export_resume_version_docx_rejects_invalid_template(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ids = _resume_version_context(client, monkeypatch)
+    resume_version_id = _create_generated_resume_version(client, ids)
+
+    response = client.get(f"/resume-versions/{resume_version_id}/export/docx?template=bad")
+
+    assert response.status_code == 422
 
 
 def test_export_resume_version_docx_isolated_by_user(

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import type { ChangeExplanation, ResumeVersionRead } from "../../api/resumeVersions";
+import type { ChangeExplanation, ResumeVersionDocxTemplate, ResumeVersionRead } from "../../api/resumeVersions";
 import CollapsibleSection from "../common/CollapsibleSection.vue";
 import LoadingButton from "../common/LoadingButton.vue";
 
@@ -14,16 +14,24 @@ const props = defineProps<{
   resumeVersion: ResumeVersionRead;
   isExportingMarkdown: boolean;
   isExportingDocx: boolean;
+  selectedDocxTemplate: ResumeVersionDocxTemplate;
   copyMessage: string;
   exportMessage: string;
   exportErrorMessage: string;
 }>();
 
 const emit = defineEmits<{
+  (event: "update:docx-template", value: ResumeVersionDocxTemplate): void;
   (event: "copy"): void;
   (event: "export"): void;
   (event: "export-docx"): void;
 }>();
+
+const docxTemplateOptions: Array<{ value: ResumeVersionDocxTemplate; label: string }> = [
+  { value: "standard", label: "Standard" },
+  { value: "modern", label: "Modern" },
+  { value: "compact", label: "Compact" }
+];
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("zh-CN", {
@@ -95,6 +103,10 @@ function inferExplanationTitle(item: ChangeExplanation, section: string): string
 function containsAny(value: string, keywords: string[]): boolean {
   return keywords.some((keyword) => value.includes(keyword));
 }
+
+function handleDocxTemplateChange(event: Event): void {
+  emit("update:docx-template", (event.target as HTMLSelectElement).value as ResumeVersionDocxTemplate);
+}
 </script>
 
 <template>
@@ -117,6 +129,18 @@ function containsAny(value: string, keywords: string[]): boolean {
         >
           导出 Markdown
         </LoadingButton>
+        <label class="docx-template-select">
+          <span>DOCX template</span>
+          <select
+            :value="selectedDocxTemplate"
+            :disabled="isExportingDocx"
+            @change="handleDocxTemplateChange"
+          >
+            <option v-for="option in docxTemplateOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
         <LoadingButton
           class="secondary-button"
           :loading="isExportingDocx"

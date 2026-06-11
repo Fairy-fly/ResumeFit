@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.ai.client import AIConfigurationError, AIResponseError
@@ -7,7 +9,7 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.schemas.resume_version import ResumeVersionGenerate, ResumeVersionRead
 from app.services.ai_usage_service import AIQuotaExceededError
-from app.services.export_service import DOCX_MEDIA_TYPE, ExportNotFoundError, ResumeExportService
+from app.services.export_service import DOCX_MEDIA_TYPE, DocxTemplateName, ExportNotFoundError, ResumeExportService
 from app.services.resume_generation_service import (
     JobAnalysisRequiredError,
     ResumeGenerationNotFoundError,
@@ -77,6 +79,7 @@ def export_resume_version_markdown(
 @router.get("/{resume_version_id}/export/docx")
 def export_resume_version_docx(
     resume_version_id: int,
+    template: Annotated[DocxTemplateName, Query()] = "standard",
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -86,6 +89,7 @@ def export_resume_version_docx(
         export = service.export_resume_version_docx(
             resume_version_id=resume_version_id,
             user_id=current_user.id,
+            template=template,
         )
     except ExportNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

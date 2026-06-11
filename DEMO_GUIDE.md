@@ -335,3 +335,32 @@ V0.7 验收结果：
 
 - 后端测试：`88 passed, 3 warnings`
 - 前端 `npm run build`：通过
+
+## V0.8 DOCX 模板导出演示补充
+
+V0.8 在 `/versions` 页面为 DOCX 导出增加模板选择，适合在演示最后说明 ResumeFit 已经从单一 DOCX 导出升级为多版式导出。
+
+推荐演示步骤：
+
+1. 登录一个已有 ResumeVersion 的账号。
+2. 打开 `/versions`。
+3. 在历史版本中选择一份已生成的简历版本。
+4. 确认 Markdown 预览区显示当前选中版本内容。
+5. 在“导出 DOCX”旁选择模板：`Standard`、`Modern` 或 `Compact`。
+6. 点击“导出 DOCX”。
+7. 确认浏览器下载 `.docx` 文件。
+8. 分别选择 `Modern` 和 `Compact` 再导出一次，说明三种模板来自同一份真实简历内容，只调整 Word 版式。
+
+讲解要点：
+
+- 接口仍然是 `GET /resume-versions/{id}/export/docx`，通过 `template` query 参数选择模板。
+- 不传模板时默认 `standard`。
+- 非法模板会返回 `422`。
+- DOCX 模板导出不调用 AI，不消耗 AI 月额度。
+- 导出仍然沿用用户隔离，用户只能导出自己的 ResumeVersion。
+- Markdown 导出继续保留，PDF 导出暂未实现。
+
+V0.8 验收结果：
+
+- 后端测试：`92 passed, 3 warnings`
+- 前端 `npm run build`：通过
