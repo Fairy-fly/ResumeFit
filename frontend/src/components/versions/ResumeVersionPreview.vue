@@ -13,6 +13,7 @@ interface DecoratedChangeExplanation {
 const props = defineProps<{
   resumeVersion: ResumeVersionRead;
   isExportingMarkdown: boolean;
+  isExportingDocx: boolean;
   copyMessage: string;
   exportMessage: string;
   exportErrorMessage: string;
@@ -21,6 +22,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: "copy"): void;
   (event: "export"): void;
+  (event: "export-docx"): void;
 }>();
 
 function formatDate(value: string): string {
@@ -114,6 +116,14 @@ function containsAny(value: string, keywords: string[]): boolean {
           @click="emit('export')"
         >
           导出 Markdown
+        </LoadingButton>
+        <LoadingButton
+          class="secondary-button"
+          :loading="isExportingDocx"
+          loading-text="正在导出 DOCX..."
+          @click="emit('export-docx')"
+        >
+          导出 DOCX
         </LoadingButton>
       </div>
     </div>

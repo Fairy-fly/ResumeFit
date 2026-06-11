@@ -11,6 +11,7 @@ import { listJobDescriptions, type JobDescriptionRead } from "../api/jobDescript
 import { listProjects, type ProjectRead } from "../api/projects";
 import { listResumeProfiles, type ResumeProfileRead } from "../api/resumeProfiles";
 import {
+  downloadResumeVersionDocx,
   downloadResumeVersionMarkdown,
   generateResumeVersion,
   listResumeVersions,
@@ -50,6 +51,7 @@ const isGenerating = ref(false);
 const isCheckingTruth = ref(false);
 const isGeneratingInterviewQuestions = ref(false);
 const isExportingMarkdown = ref(false);
+const isExportingDocx = ref(false);
 const errorMessage = ref("");
 const truthErrorMessage = ref("");
 const interviewErrorMessage = ref("");
@@ -452,6 +454,33 @@ async function exportMarkdown(): Promise<void> {
   }
 }
 
+async function exportDocx(): Promise<void> {
+  if (!selectedResumeVersion.value || isExportingDocx.value) {
+    return;
+  }
+
+  isExportingDocx.value = true;
+  exportMessage.value = "";
+  exportErrorMessage.value = "";
+
+  try {
+    const { blob, filename } = await downloadResumeVersionDocx(selectedResumeVersion.value.id);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    exportMessage.value = "DOCX 文件已开始下载。";
+  } catch (error) {
+    exportErrorMessage.value = getFriendlyErrorMessage(error);
+  } finally {
+    isExportingDocx.value = false;
+  }
+}
+
 onMounted(() => {
   void loadOptions();
 });
@@ -493,11 +522,13 @@ onMounted(() => {
       :key="selectedResumeVersion.id"
       :resume-version="selectedResumeVersion"
       :is-exporting-markdown="isExportingMarkdown"
+      :is-exporting-docx="isExportingDocx"
       :copy-message="copyMessage"
       :export-message="exportMessage"
       :export-error-message="exportErrorMessage"
       @copy="copyMarkdown"
       @export="exportMarkdown"
+      @export-docx="exportDocx"
     />
 
     <VersionHistorySelector

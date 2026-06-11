@@ -39,6 +39,11 @@ export interface ResumeVersionMarkdownDownload {
   filename: string;
 }
 
+export interface ResumeVersionDocxDownload {
+  blob: Blob;
+  filename: string;
+}
+
 export function generateResumeVersion(payload: ResumeVersionGenerate): Promise<ResumeVersionRead> {
   return apiPost<ResumeVersionGenerate, ResumeVersionRead>("/resume-versions/generate", payload);
 }
@@ -50,7 +55,21 @@ export function listResumeVersions(): Promise<ResumeVersionRead[]> {
 export async function downloadResumeVersionMarkdown(
   resumeVersionId: number
 ): Promise<ResumeVersionMarkdownDownload> {
-  const response = await fetch(`${API_BASE_URL}/resume-versions/${resumeVersionId}/export/markdown`, {
+  return downloadResumeVersionExport(resumeVersionId, "markdown", fallbackFilename("md"));
+}
+
+export async function downloadResumeVersionDocx(
+  resumeVersionId: number
+): Promise<ResumeVersionDocxDownload> {
+  return downloadResumeVersionExport(resumeVersionId, "docx", "resume-version.docx");
+}
+
+async function downloadResumeVersionExport(
+  resumeVersionId: number,
+  format: "markdown" | "docx",
+  defaultFilename: string
+): Promise<{ blob: Blob; filename: string }> {
+  const response = await fetch(`${API_BASE_URL}/resume-versions/${resumeVersionId}/export/${format}`, {
     headers: buildAuthHeaders()
   });
 
@@ -61,7 +80,7 @@ export async function downloadResumeVersionMarkdown(
   const blob = await response.blob();
   return {
     blob,
-    filename: parseContentDispositionFilename(response.headers.get("Content-Disposition")) ?? fallbackFilename()
+    filename: parseContentDispositionFilename(response.headers.get("Content-Disposition")) ?? defaultFilename
   };
 }
 
@@ -102,6 +121,6 @@ function parseContentDispositionFilename(contentDisposition: string | null): str
   return fallbackMatch?.[1] ?? null;
 }
 
-function fallbackFilename(): string {
-  return `ResumeFit_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.md`;
+function fallbackFilename(extension: string): string {
+  return `ResumeFit_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.${extension}`;
 }
