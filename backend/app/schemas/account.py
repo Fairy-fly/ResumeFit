@@ -21,6 +21,7 @@ class AccountRead(BaseModel):
     id: int
     email: str | None
     display_name: str | None
+    role: str
     status: str
     created_at: datetime
     updated_at: datetime

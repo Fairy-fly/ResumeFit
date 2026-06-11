@@ -89,6 +89,7 @@ function toAuthUser(value: AccountRead): AuthUser {
     id: value.id,
     email: value.email,
     display_name: value.display_name,
+    role: value.role,
     status: value.status,
     created_at: value.created_at,
     updated_at: value.updated_at

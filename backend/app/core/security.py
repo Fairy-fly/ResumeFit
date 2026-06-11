@@ -56,6 +56,15 @@ def get_current_user(
     return user
 
 
+def get_current_admin_user(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin permission is required.",
+        )
+    return current_user
+
+
 def raise_authentication_error() -> None:
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -81,6 +90,8 @@ def ensure_user_auth_columns() -> None:
         statements.append("ALTER TABLE users ADD COLUMN password_hash VARCHAR")
     if "display_name" not in columns:
         statements.append("ALTER TABLE users ADD COLUMN display_name VARCHAR")
+    if "role" not in columns:
+        statements.append("ALTER TABLE users ADD COLUMN role VARCHAR NOT NULL DEFAULT 'user'")
     if "status" not in columns:
         statements.append("ALTER TABLE users ADD COLUMN status VARCHAR NOT NULL DEFAULT 'active'")
     if "updated_at" not in columns:
@@ -89,6 +100,7 @@ def ensure_user_auth_columns() -> None:
     with engine.begin() as connection:
         for statement in statements:
             connection.execute(text(statement))
+        connection.execute(text("UPDATE users SET role = 'user' WHERE role IS NULL"))
         connection.execute(text("UPDATE users SET status = 'active' WHERE status IS NULL"))
         connection.execute(text("UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL"))
         connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users(email)"))

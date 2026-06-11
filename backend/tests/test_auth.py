@@ -63,6 +63,7 @@ def test_register_user_success(auth_client: tuple[TestClient, sessionmaker[Sessi
     assert payload["token_type"] == "bearer"
     assert payload["user"]["email"] == "new@example.com"
     assert payload["user"]["display_name"] == "New User"
+    assert payload["user"]["role"] == "user"
     assert "password" not in payload["user"]
     assert "password_hash" not in payload["user"]
 
@@ -96,6 +97,7 @@ def test_login_success(auth_client: tuple[TestClient, sessionmaker[Session]]) ->
     assert payload["access_token"]
     assert payload["token_type"] == "bearer"
     assert payload["user"]["email"] == "login@example.com"
+    assert payload["user"]["role"] == "user"
 
 
 def test_login_rejects_wrong_password(auth_client: tuple[TestClient, sessionmaker[Session]]) -> None:
@@ -144,6 +146,7 @@ def test_me_returns_current_user_with_valid_token(auth_client: tuple[TestClient,
     payload = response.json()
     assert payload["email"] == "me@example.com"
     assert payload["display_name"] == "Test User"
+    assert payload["role"] == "user"
     assert "password_hash" not in payload
 
 

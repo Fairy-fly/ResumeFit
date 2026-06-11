@@ -30,7 +30,7 @@ def _build_test_client(
     Base.metadata.create_all(bind=engine)
 
     with testing_session_local() as db:
-        db.add(User(id=1, display_name="Demo User", status="active"))
+        db.add(User(id=1, display_name="Demo Admin", role="admin", status="active"))
         db.commit()
 
     def override_get_db() -> Generator[Session, None, None]:
@@ -176,6 +176,95 @@ def test_account_update_ignores_forbidden_fields(client: TestClient) -> None:
     assert response.json()["status"] == "active"
     assert auth_response.json()["email"] == "account-forbidden@example.com"
     assert auth_response.json()["status"] == "active"
+    assert auth_response.json()["role"] == "user"
+
+
+def test_admin_endpoints_require_login(anonymous_client: TestClient) -> None:
+    users_response = anonymous_client.get("/admin/users")
+    usage_response = anonymous_client.get("/admin/usage/summary")
+
+    assert users_response.status_code == 401
+    assert usage_response.status_code == 401
+
+
+def test_admin_endpoints_reject_normal_user(client: TestClient) -> None:
+    token = _register_test_user(client, email="not-admin@example.com")
+    headers = _auth_headers(token)
+
+    users_response = client.get("/admin/users", headers=headers)
+    detail_response = client.get("/admin/users/1", headers=headers)
+    status_response = client.patch("/admin/users/1/status", headers=headers, json={"status": "disabled"})
+    usage_response = client.get("/admin/usage/summary", headers=headers)
+
+    assert users_response.status_code == 403
+    assert detail_response.status_code == 403
+    assert status_response.status_code == 403
+    assert usage_response.status_code == 403
+
+
+def test_admin_can_list_and_search_users(client: TestClient) -> None:
+    _register_test_user(client, email="alpha-admin-list@example.com")
+    _register_test_user(client, email="beta-admin-list@example.com")
+
+    response = client.get("/admin/users", params={"search": "alpha-admin-list", "page": 1, "page_size": 10})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["page"] == 1
+    assert payload["page_size"] == 10
+    assert payload["items"][0]["email"] == "alpha-admin-list@example.com"
+    assert payload["items"][0]["role"] == "user"
+    assert payload["items"][0]["status"] == "active"
+    assert payload["items"][0]["usage"]["monthly_used"] == 0
+    assert "password_hash" not in payload["items"][0]
+
+
+def test_admin_can_view_user_detail_and_global_usage_summary(client: TestClient) -> None:
+    token = _register_test_user(client, email="admin-detail-user@example.com")
+    user_payload = client.get("/auth/me", headers=_auth_headers(token)).json()
+
+    detail_response = client.get(f"/admin/users/{user_payload['id']}")
+    usage_response = client.get("/admin/usage/summary")
+
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.json()
+    assert detail_payload["email"] == "admin-detail-user@example.com"
+    assert detail_payload["usage_summary"]["monthly_used"] == 0
+    assert "password_hash" not in detail_payload
+    assert "access_token" not in detail_payload
+
+    assert usage_response.status_code == 200
+    usage_payload = usage_response.json()
+    assert usage_payload["total_call_count"] == 0
+    assert usage_payload["monthly_call_count"] == 0
+    assert usage_payload["monthly_success_count"] == 0
+    assert usage_payload["monthly_failure_count"] == 0
+    assert usage_payload["feature_counts"] == []
+    assert usage_payload["recent_calls"] == []
+
+
+def test_admin_can_disable_user_and_disabled_user_cannot_login_or_use_token(client: TestClient) -> None:
+    token = _register_test_user(client, email="admin-disable-user@example.com")
+    user_payload = client.get("/auth/me", headers=_auth_headers(token)).json()
+
+    status_response = client.patch(f"/admin/users/{user_payload['id']}/status", json={"status": "disabled"})
+    login_response = client.post(
+        "/auth/login",
+        json={"email": "admin-disable-user@example.com", "password": "password123"},
+    )
+    existing_token_response = client.get("/account/me", headers=_auth_headers(token))
+
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "disabled"
+    assert login_response.status_code == 401
+    assert existing_token_response.status_code == 401
+
+
+def test_admin_cannot_disable_own_account(client: TestClient) -> None:
+    response = client.patch("/admin/users/1/status", json={"status": "disabled"})
+
+    assert response.status_code == 400
 
 
 def test_dashboard_summary_starts_empty(client: TestClient) -> None:

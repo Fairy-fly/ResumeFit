@@ -7,7 +7,7 @@ import { authSession, clearSession } from "./auth/session";
 const route = useRoute();
 const router = useRouter();
 
-const navItems = [
+const baseNavItems = [
   { label: "首页", to: "/" },
   { label: "通用简历", to: "/resume" },
   { label: "项目库", to: "/projects" },
@@ -17,6 +17,13 @@ const navItems = [
   { label: "用量统计", to: "/usage" },
   { label: "个人中心", to: "/account" }
 ];
+
+const navItems = computed(() => {
+  if (authSession.user?.role === "admin") {
+    return [...baseNavItems, { label: "管理后台", to: "/admin" }];
+  }
+  return baseNavItems;
+});
 
 const isAuthPage = computed(() => route.path === "/login" || route.path === "/register");
 const userLabel = computed(() => authSession.user?.display_name || authSession.user?.email || "已登录用户");

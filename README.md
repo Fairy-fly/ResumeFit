@@ -168,6 +168,7 @@ Invoke-RestMethod http://localhost:8000/dashboard/summary
 - [ACCEPTANCE_CHECKLIST.md](ACCEPTANCE_CHECKLIST.md)：提交前验收检查表。
 - [V0.4_ACCEPTANCE_CHECKLIST.md](V0.4_ACCEPTANCE_CHECKLIST.md)：AI 用量与基础额度验收清单。
 - [V0.5_ACCEPTANCE_CHECKLIST.md](V0.5_ACCEPTANCE_CHECKLIST.md)：个人中心与账户设置验收清单。
+- [V0.6_ACCEPTANCE_CHECKLIST.md](V0.6_ACCEPTANCE_CHECKLIST.md)：管理后台基础版验收清单。
 
 ## 通用简历输入模块测试
 
@@ -593,6 +594,53 @@ V0.5 在 V0.3 多用户基础和 V0.4 用量统计基础上，新增个人中心
 - `v0.2-product-experience`
 - `v0.3-multi-user`
 - `v0.4-ai-usage-quota`
+
+## V0.6 管理后台基础版
+
+V0.6 新增轻量管理后台，用于后续商业化运营准备。本阶段只做用户列表、用户详情、全站 AI 用量概览和账号状态管理，不包含支付、会员套餐、订单、发票、复杂 RBAC、操作审计或删除用户。
+
+### 已完成能力
+
+- `users` 表新增 `role` 字段，取值为 `user` / `admin`。
+- 新增 `get_current_admin_user` 后端权限依赖，非 admin 访问后台接口返回 `403`。
+- `/auth/me`、注册和登录返回的用户信息包含 `role`。
+- 新增后端接口：
+  - `GET /admin/users`：用户列表，支持分页和按 email / display_name 搜索。
+  - `GET /admin/users/{user_id}`：用户详情，返回基础账户信息和用量概览。
+  - `PATCH /admin/users/{user_id}/status`：启用 / 禁用用户。
+  - `GET /admin/usage/summary`：全站 AI 用量概览。
+- 新增前端 `/admin` 页面。
+- Sidebar 仅 admin 用户显示“管理后台”入口。
+- 禁用用户后，该用户不能登录，已有 token 也不能继续调用业务接口。
+
+### 管理员账号设置
+
+V0.6 不提供公开“注册为管理员”入口，也不自动创建默认管理员账号。演示或本地开发时，建议先正常注册一个账号，再在 SQLite 中手动设置：
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -c "from app.core.database import SessionLocal; from app.models.user import User; db=SessionLocal(); user=db.query(User).filter(User.email=='admin@example.com').first(); user.role='admin'; db.commit(); db.close()"
+```
+
+### V0.6 验证命令
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m pytest
+```
+
+当前后端测试结果：
+
+- backend pytest：`84 passed, 3 warnings`
+
+```powershell
+cd frontend
+npm run build
+```
+
+当前前端构建结果：
+
+- frontend npm run build：passed
 
 ## MVP 不做什么
 

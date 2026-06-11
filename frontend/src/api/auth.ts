@@ -4,6 +4,7 @@ export interface AuthUser {
   id: number;
   email: string | null;
   display_name: string | null;
+  role: string;
   status: string;
   created_at: string;
   updated_at: string;

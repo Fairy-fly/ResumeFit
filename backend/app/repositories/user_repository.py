@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.user import User
@@ -33,3 +33,27 @@ class UserRepository:
         self.db.commit()
         self.db.refresh(user)
         return user
+
+    def count(self, *, search: str | None = None) -> int:
+        statement = select(func.count()).select_from(User)
+        if search:
+            statement = statement.where(self._search_filter(search))
+        return int(self.db.scalar(statement) or 0)
+
+    def list_paginated(self, *, page: int, page_size: int, search: str | None = None) -> list[User]:
+        statement = select(User).order_by(User.created_at.desc(), User.id.desc())
+        if search:
+            statement = statement.where(self._search_filter(search))
+        statement = statement.offset((page - 1) * page_size).limit(page_size)
+        return list(self.db.scalars(statement).all())
+
+    def update_status(self, *, user: User, status: str) -> User:
+        user.status = status
+        self.db.add(user)
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def _search_filter(self, search: str):
+        pattern = f"%{search.strip()}%"
+        return or_(User.email.ilike(pattern), User.display_name.ilike(pattern))

@@ -43,6 +43,10 @@ class AIUsageRepository:
         statement = select(func.count()).select_from(AIUsageLog).where(AIUsageLog.user_id == user_id)
         return int(self.db.scalar(statement) or 0)
 
+    def count_all(self) -> int:
+        statement = select(func.count()).select_from(AIUsageLog)
+        return int(self.db.scalar(statement) or 0)
+
     def count_by_user_since(self, *, user_id: int, since: datetime) -> int:
         statement = (
             select(func.count())
@@ -51,11 +55,23 @@ class AIUsageRepository:
         )
         return int(self.db.scalar(statement) or 0)
 
+    def count_all_since(self, *, since: datetime) -> int:
+        statement = select(func.count()).select_from(AIUsageLog).where(AIUsageLog.created_at >= since)
+        return int(self.db.scalar(statement) or 0)
+
     def count_by_status_since(self, *, user_id: int, status: str, since: datetime) -> int:
         statement = (
             select(func.count())
             .select_from(AIUsageLog)
             .where(AIUsageLog.user_id == user_id, AIUsageLog.status == status, AIUsageLog.created_at >= since)
+        )
+        return int(self.db.scalar(statement) or 0)
+
+    def count_all_by_status_since(self, *, status: str, since: datetime) -> int:
+        statement = (
+            select(func.count())
+            .select_from(AIUsageLog)
+            .where(AIUsageLog.status == status, AIUsageLog.created_at >= since)
         )
         return int(self.db.scalar(statement) or 0)
 
@@ -76,6 +92,23 @@ class AIUsageRepository:
             for feature_type, count, success_count, failure_count in self.db.execute(statement).all()
         ]
 
+    def feature_counts_all_since(self, *, since: datetime) -> list[tuple[str, int, int, int]]:
+        statement = (
+            select(
+                AIUsageLog.feature_type,
+                func.count().label("count"),
+                func.sum(case((AIUsageLog.status == "success", 1), else_=0)).label("success_count"),
+                func.sum(case((AIUsageLog.status == "failed", 1), else_=0)).label("failure_count"),
+            )
+            .where(AIUsageLog.created_at >= since)
+            .group_by(AIUsageLog.feature_type)
+            .order_by(AIUsageLog.feature_type.asc())
+        )
+        return [
+            (str(feature_type), int(count or 0), int(success_count or 0), int(failure_count or 0))
+            for feature_type, count, success_count, failure_count in self.db.execute(statement).all()
+        ]
+
     def recent_by_user(self, *, user_id: int, limit: int = 10) -> list[AIUsageLog]:
         statement = (
             select(AIUsageLog)
@@ -83,4 +116,8 @@ class AIUsageRepository:
             .order_by(AIUsageLog.created_at.desc())
             .limit(limit)
         )
+        return list(self.db.scalars(statement).all())
+
+    def recent_all(self, *, limit: int = 10) -> list[AIUsageLog]:
+        statement = select(AIUsageLog).order_by(AIUsageLog.created_at.desc()).limit(limit)
         return list(self.db.scalars(statement).all())

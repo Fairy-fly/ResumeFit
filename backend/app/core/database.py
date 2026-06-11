@@ -33,5 +33,5 @@ def init_db() -> None:
     with SessionLocal() as db:
         default_user = db.get(User, 1)
         if default_user is None:
-            db.add(User(id=1, display_name="Demo User", status="active"))
+            db.add(User(id=1, display_name="Demo User", role="user", status="active"))
             db.commit()

@@ -37,6 +37,10 @@ export function getFriendlyErrorMessage(error: unknown): string {
     return "本月 AI 调用额度已用完，请下月再试，或调整后端 .env 中的 AI_MONTHLY_CALL_LIMIT 配置";
   }
 
+  if (status === 403) {
+    return "当前账号没有管理后台权限。";
+  }
+
   if (status === 404 && normalized.includes("resume version")) {
     return "该简历版本不存在或已被删除";
   }
