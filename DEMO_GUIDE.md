@@ -307,3 +307,31 @@ V0.5 验收结果：
 - 提前跑一次完整流程，确保数据库中有可展示数据。
 - 准备 pytest 和 npm build 通过截图。
 - 准备 FastAPI docs 截图，展示接口结构。
+## V0.7 DOCX 导出演示补充
+
+V0.7 在 `/versions` 页面新增“导出 DOCX”按钮，适合在 Demo 最后展示“生成可投递文件”的能力。
+
+推荐演示步骤：
+
+1. 登录一个已有数据的用户账号。
+2. 打开 `/versions`。
+3. 从历史版本中选择一个已生成的 ResumeVersion。
+4. 先展示 Markdown 简历内容。
+5. 点击“导出 Markdown”，说明原有 `.md` 导出能力仍然保留。
+6. 点击“导出 DOCX”。
+7. 预期浏览器下载 `.docx` 文件。
+8. 打开下载文件，确认标题、项目段落、技能等核心文本来自页面中的 Markdown 简历。
+
+讲解要点：
+
+- DOCX 导出接口为 `GET /resume-versions/{id}/export/docx`。
+- 后端使用 `python-docx` 基于 `ResumeVersion.content_markdown` 生成 DOCX。
+- 文件以内存流返回，不长期保存到公开目录。
+- DOCX 导出不调用 AI，不消耗 AI 月额度。
+- DOCX 导出沿用 V0.3 用户隔离，用户不能导出其他人的 ResumeVersion。
+- PDF 导出暂未实现，作为后续版本规划。
+
+V0.7 验收结果：
+
+- 后端测试：`88 passed, 3 warnings`
+- 前端 `npm run build`：通过

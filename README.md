@@ -680,3 +680,52 @@ MVP 阶段不包含以下能力：
 5. 将 Prompt 拆分到 `prompts/`。
 6. 跑通 JD 分析、匹配度评分、简历生成、风险检测和面试问题预测。
 7. 增加 Markdown 导出和多版本保存。
+## V0.7 DOCX 简历导出增强版
+
+V0.7 在原有 Markdown 导出基础上新增 DOCX 简历导出，让 ResumeFit 可以生成更接近真实投递场景的文件。
+
+后端新增接口：
+
+```http
+GET /resume-versions/{id}/export/docx
+```
+
+说明：
+
+- 使用 `python-docx` 基于 `ResumeVersion.content_markdown` 生成 DOCX。
+- DOCX 导出以内存流返回，不长期保存文件。
+- DOCX 导出不调用 AI，也不计入 AI 使用额度。
+- DOCX 导出沿用 V0.3 用户隔离，用户只能导出自己的 `ResumeVersion`。
+- 响应 `Content-Type` 为 `application/vnd.openxmlformats-officedocument.wordprocessingml.document`。
+- 响应 `Content-Disposition` 提供 `.docx` 下载文件名。
+- 文件名不包含 token、email、用户 id 等敏感信息。
+
+前端变化：
+
+- `/versions` 页面新增“导出 DOCX”按钮。
+- “导出 Markdown”继续保留。
+- DOCX 下载请求携带 `Authorization: Bearer <token>`。
+- 下载失败时使用现有友好错误提示。
+
+当前边界：
+
+- PDF 导出暂未实现，作为后续版本规划。
+- 不提供模板选择 UI。
+- 不记录导出历史。
+- 不新增数据库表。
+
+V0.7 验收结果：
+
+- 后端测试：`88 passed, 3 warnings`
+- 前端 `npm run build`：通过
+
+当前最新稳定版本：`v0.7-docx-export`
+
+当前标签列表：
+
+- `v0.1-demo-mvp`
+- `v0.2-product-experience`
+- `v0.3-multi-user`
+- `v0.4-ai-usage-quota`
+- `v0.5-account-center`
+- `v0.6-admin-basic`

@@ -246,3 +246,30 @@ V0.5 验收结果：
 - `v0.2-product-experience`
 - `v0.3-multi-user`
 - `v0.4-ai-usage-quota`
+## V0.7 DOCX 简历导出增强版
+
+V0.7 在 Markdown 导出基础上增加 DOCX 导出能力，目标是让系统从“生成简历内容”进一步接近“生成可投递文件”。
+
+本版本新增：
+
+- 后端接口 `GET /resume-versions/{id}/export/docx`。
+- 使用 `python-docx` 基于 `ResumeVersion.content_markdown` 生成 DOCX。
+- DOCX 文件以内存流返回，不长期保存到公开目录。
+- DOCX 导出不调用 AI，不计入 AI 使用额度。
+- DOCX 导出沿用多用户隔离，用户只能导出自己的 ResumeVersion。
+- 前端 `/versions` 页面新增“导出 DOCX”按钮。
+- Markdown 导出继续保留。
+
+能力边界：
+
+- PDF 导出暂未实现。
+- 暂不提供模板选择 UI。
+- 暂不记录导出历史。
+- 不新增数据库表。
+
+V0.7 验收结果：
+
+- 后端测试：`88 passed, 3 warnings`
+- 前端 `npm run build`：通过
+
+当前最新稳定版本：`v0.7-docx-export`

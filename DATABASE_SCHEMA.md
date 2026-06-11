@@ -329,3 +329,29 @@ AI_OUTPUT_TOKEN_PRICE_PER_1K=0
 - `provider_configs`
 
 这些表不进入 MVP。
+## V0.7 DOCX 导出说明
+
+V0.7 新增 DOCX 简历导出，但不新增数据库表，也不修改现有数据库结构。
+
+导出数据来源：
+
+- `resume_versions.content_markdown`
+
+权限依据：
+
+- `resume_versions.user_id`
+- 后端通过当前登录用户 id 查询 `ResumeVersion`，用户只能导出自己的版本。
+
+不新增表的原因：
+
+- DOCX 导出第一版只做即时下载。
+- 文件使用内存流返回，不长期保存。
+- 暂不记录导出历史。
+- 暂不提供模板选择。
+
+当前保留能力：
+
+- Markdown 导出继续使用现有 `ResumeVersion.content_markdown`。
+- DOCX 导出与 Markdown 导出共享同一份简历版本内容来源。
+
+后续如需要统计导出次数或保存模板选择，可再新增 `export_logs` 或 `resume_export_jobs` 等表。

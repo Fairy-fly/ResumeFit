@@ -10,8 +10,9 @@
 - `v0.4-ai-usage-quota`
 - `v0.5-account-center`
 - `v0.6-admin-basic`
+- `v0.7-docx-export`
 
-当前最新稳定版本：`v0.6-admin-basic`
+当前最新稳定版本：`v0.7-docx-export`
 
 ## 2. 各版本完成内容与能力边界
 
@@ -239,9 +240,50 @@
 - 招聘网站爬取。
 - PDF/Word 导出。
 
+### v0.7-docx-export
+
+完成内容：
+
+- 新增 DOCX 简历导出增强版。
+- 后端新增接口：
+  - `GET /resume-versions/{id}/export/docx`
+- 使用 `python-docx` 基于 `ResumeVersion.content_markdown` 生成 DOCX。
+- DOCX 导出使用内存流返回，不长期保存文件。
+- DOCX 导出不调用 AI。
+- DOCX 导出不计入 AI 使用额度。
+- DOCX 导出沿用 V0.3 用户隔离。
+- 用户只能导出自己的 ResumeVersion。
+- 前端 `/versions` 页面新增“导出 DOCX”按钮。
+- Markdown 导出继续保留。
+
+核心能力边界：
+
+- DOCX 内容来源是已经保存的 `ResumeVersion.content_markdown`。
+- 导出接口需要登录，并按当前用户 id 校验 ResumeVersion 归属。
+- 文件名来自后端 `Content-Disposition`，不包含 token、email、用户 id 等敏感信息。
+- 导出文件即时返回，不保存到公开目录。
+
+验收结果：
+
+- 后端测试：`88 passed, 3 warnings`
+- 前端 `npm run build`：通过
+
+没有做：
+
+- PDF 导出。
+- 模板选择 UI。
+- 导出历史。
+- 新数据库表。
+- 支付。
+- 会员套餐。
+- 订单。
+- 在线 Word 预览。
+- 招聘网站爬取。
+- 头像上传。
+
 ## 3. 当前最新稳定版本说明
 
-当前最新稳定版本为：`v0.6-admin-basic`。
+当前最新稳定版本为：`v0.7-docx-export`。
 
 该版本已经具备：
 
@@ -255,6 +297,7 @@
 - 用量统计页面。
 - 个人中心。
 - 管理后台基础版。
+- DOCX 简历导出。
 
 适合用于：
 
@@ -316,6 +359,7 @@ AI：
 - 检测真实性风险。
 - 预测面试追问。
 - 导出 Markdown 简历。
+- 导出 DOCX 简历。
 
 多用户能力：
 
@@ -354,12 +398,22 @@ AI：
 - 全站 AI 用量概览。
 - 禁用用户访问拦截。
 
-## 6. 后续 V0.7 推荐方向
+导出能力：
 
-推荐方向：后台可观测与运营辅助。
+- Markdown 导出。
+- DOCX 导出。
+- 导出权限按当前用户隔离。
+- DOCX 导出不调用 AI、不消耗 AI 额度。
+
+## 6. 后续 V0.8 推荐方向
+
+推荐方向：导出体验与后台可观测增强。
 
 可以考虑：
 
+- PDF 导出。
+- 简历导出模板选择。
+- DOCX 排版增强。
 - 更详细的后台用量趋势。
 - 按用户查看功能调用分布。
 - 最近失败 AI 调用列表。
@@ -378,7 +432,7 @@ AI：
 - 操作审计日志。
 - 删除用户。
 - 修改用户密码。
-- PDF/Word 导出。
+- 在线 Word 预览。
 
 ## 7. 版本维护建议
 
