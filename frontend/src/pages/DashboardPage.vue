@@ -233,7 +233,7 @@ onMounted(loadSummary);
 </script>
 
 <template>
-  <section class="dashboard-page">
+  <section class="dashboard-page motion-page">
     <header class="dashboard-header">
       <div>
         <p class="eyebrow">Demo 操作台</p>
@@ -252,7 +252,7 @@ onMounted(loadSummary);
     </p>
 
     <section class="dashboard-overview" aria-labelledby="progress-title">
-      <article class="progress-card">
+      <article class="progress-card motion-card">
         <div>
           <p class="eyebrow">当前完成进度</p>
           <h2 id="progress-title">{{ completedCoreSteps }} / 5</h2>
@@ -263,7 +263,7 @@ onMounted(loadSummary);
         </div>
       </article>
 
-      <article class="next-action-card">
+      <article class="next-action-card motion-card">
         <p class="eyebrow">下一步建议</p>
         <template v-if="nextAction">
           <h2>{{ nextAction.title }}</h2>
@@ -283,7 +283,7 @@ onMounted(loadSummary);
         <p>只统计数量，不暴露简历正文、项目内容或 JD 原文。</p>
       </div>
       <div class="stat-grid" aria-live="polite">
-        <RouterLink v-for="stat in statCards" :key="stat.label" class="stat-card" :to="stat.route">
+        <RouterLink v-for="stat in statCards" :key="stat.label" class="stat-card motion-card" :to="stat.route">
           <span class="stat-label">{{ stat.label }}</span>
           <strong>{{ stat.value }}</strong>
           <span class="stat-hint">{{ stat.hint }}</span>
@@ -300,7 +300,7 @@ onMounted(loadSummary);
         <article
           v-for="(step, index) in workflowSteps"
           :key="step.title"
-          class="step-card"
+          class="step-card motion-card"
           :class="`step-${workflowStatus(index)}`"
         >
           <div class="step-index">{{ index + 1 }}</div>
@@ -318,8 +318,8 @@ onMounted(loadSummary);
         <p>/versions 页面承载定制简历、真实性检测、面试追问和 Markdown 导出。</p>
       </div>
       <div class="quick-link-grid">
-        <RouterLink v-for="link in quickLinks" :key="link.route" class="quick-link-card" :to="link.route">
-          <span>{{ link.label }}</span>
+        <RouterLink v-for="link in quickLinks" :key="link.route" class="quick-link-card motion-card" :to="link.route">
+          <span class="quick-link-title">{{ link.label }} <b aria-hidden="true">→</b></span>
           <small>{{ link.description }}</small>
         </RouterLink>
       </div>
@@ -338,19 +338,28 @@ onMounted(loadSummary);
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at 12% 20%, rgba(75, 92, 240, 0.07), transparent 42%),
+    radial-gradient(circle at 92% 75%, rgba(24, 169, 153, 0.055), transparent 44%),
+    var(--surface);
+  box-shadow: var(--shadow-card);
+  padding: 26px;
 }
 
 .eyebrow {
   margin: 0 0 8px;
-  color: #49605f;
+  color: var(--brand-primary);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 850;
+  letter-spacing: 0;
 }
 
 .dashboard-intro {
   max-width: 760px;
   margin: 12px 0 0;
-  color: #5b6270;
+  color: var(--text-muted);
   font-size: 15px;
   line-height: 1.7;
 }
@@ -361,10 +370,10 @@ onMounted(loadSummary);
   align-items: center;
   justify-content: center;
   min-height: 38px;
-  border-radius: 8px;
-  border: 1px solid #c7ccd6;
-  background: #ffffff;
-  color: #26313f;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-medium);
+  background: var(--surface);
+  color: var(--text-soft);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -382,20 +391,20 @@ onMounted(loadSummary);
 
 .status-message {
   margin: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 12px 14px;
   font-size: 14px;
 }
 
 .status-message.error {
-  border: 1px solid #f2b8b5;
-  background: #fff4f2;
+  border: 1px solid rgba(229, 107, 122, 0.26);
+  background: var(--brand-rose-soft);
   color: #9b2c1f;
 }
 
 .dashboard-overview {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
   gap: 16px;
 }
 
@@ -403,21 +412,26 @@ onMounted(loadSummary);
 .next-action-card {
   display: grid;
   gap: 16px;
-  border: 1px solid #dedfe3;
-  border-radius: 8px;
-  background: #ffffff;
-  padding: 20px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  padding: 22px;
 }
 
 .next-action-card {
-  border-color: #9eb2ff;
-  background: #f5f7ff;
+  border-color: rgba(75, 92, 240, 0.22);
+  background:
+    linear-gradient(135deg, rgba(232, 236, 255, 0.86), rgba(255, 255, 255, 0.96));
+  box-shadow:
+    inset 4px 0 0 var(--brand-primary),
+    var(--shadow-xs);
 }
 
 .progress-card h2,
 .next-action-card h2 {
   margin: 0;
-  color: #1f2a37;
+  color: var(--text-main);
   font-size: 28px;
   line-height: 1.2;
 }
@@ -425,7 +439,7 @@ onMounted(loadSummary);
 .progress-card p,
 .next-action-card p {
   margin: 8px 0 0;
-  color: #5f6877;
+  color: var(--text-muted);
   line-height: 1.6;
 }
 
@@ -433,14 +447,14 @@ onMounted(loadSummary);
   overflow: hidden;
   height: 10px;
   border-radius: 999px;
-  background: #e6e9f2;
+  background: #e2e8f0;
 }
 
 .progress-bar span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #243b99;
+  background: linear-gradient(90deg, var(--brand-primary), var(--brand-teal));
   transition: width 0.2s ease;
 }
 
@@ -450,11 +464,12 @@ onMounted(loadSummary);
   justify-content: center;
   width: fit-content;
   min-height: 40px;
-  border-radius: 8px;
-  background: #243b99;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #6672f6 0%, var(--brand-primary) 100%);
   color: #ffffff;
   font-weight: 800;
   padding: 0 16px;
+  box-shadow: var(--shadow-button);
 }
 
 .dashboard-section {
@@ -464,13 +479,14 @@ onMounted(loadSummary);
 
 .section-heading h2 {
   margin: 0;
+  color: var(--text-main);
   font-size: 20px;
   line-height: 1.25;
 }
 
 .section-heading p {
   margin: 6px 0 0;
-  color: #676f7d;
+  color: var(--text-muted);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -484,20 +500,21 @@ onMounted(loadSummary);
 .stat-card,
 .step-card,
 .quick-link-card {
-  border: 1px solid #dedfe3;
-  border-radius: 8px;
-  background: #ffffff;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
 }
 
 .stat-card {
   display: grid;
   gap: 6px;
-  min-height: 116px;
+  min-height: 108px;
   padding: 16px;
 }
 
 .stat-card strong {
-  color: #1f2a37;
+  color: var(--brand-primary);
   font-size: 32px;
   line-height: 1;
 }
@@ -517,24 +534,24 @@ onMounted(loadSummary);
 .step-card {
   display: grid;
   grid-template-rows: auto auto auto 1fr auto;
-  gap: 10px;
-  min-height: 220px;
-  padding: 18px;
+  gap: 9px;
+  min-height: 204px;
+  padding: 18px 18px 16px;
 }
 
 .step-card.step-current {
-  border-color: #9eb2ff;
-  background: #f5f7ff;
-  box-shadow: inset 4px 0 0 #243b99;
+  border-color: rgba(75, 92, 240, 0.28);
+  background: linear-gradient(135deg, rgba(232, 236, 255, 0.88), #ffffff);
+  box-shadow: inset 4px 0 0 var(--brand-primary), var(--shadow-xs);
 }
 
 .step-card.step-done {
-  border-color: #b7dec5;
-  background: #f7fcf9;
+  border-color: rgba(24, 169, 153, 0.24);
+  background: linear-gradient(135deg, rgba(221, 247, 243, 0.7), #ffffff);
 }
 
 .step-card.step-available {
-  border-color: #c7ccd6;
+  border-color: var(--border-soft);
   background: #fbfcff;
 }
 
@@ -545,50 +562,51 @@ onMounted(loadSummary);
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: #e9f4ef;
-  color: #245845;
+  background: var(--brand-teal-soft);
+  color: #0f766e;
   font-weight: 800;
 }
 
 .step-current .step-index {
-  background: #243b99;
+  background: var(--brand-primary);
   color: #ffffff;
 }
 
 .step-done .step-index {
-  background: #dff4e7;
-  color: #176b3a;
+  background: var(--brand-teal-soft);
+  color: #0f766e;
 }
 
 .step-status {
   width: fit-content;
   border-radius: 999px;
-  background: #eef2ff;
-  color: #243b99;
+  background: var(--brand-primary-soft);
+  color: var(--brand-primary-deep);
   font-size: 12px;
   font-weight: 800;
   padding: 4px 8px;
 }
 
 .step-done .step-status {
-  background: #e9f8ef;
-  color: #176b3a;
+  background: var(--brand-teal-soft);
+  color: #0f766e;
 }
 
 .step-pending .step-status {
-  background: #f1f3f7;
-  color: #687181;
+  background: #f1f5f9;
+  color: var(--text-muted);
 }
 
 .step-card h3 {
   margin: 0;
+  color: var(--text-main);
   font-size: 17px;
   line-height: 1.35;
 }
 
 .step-card p {
   margin: 0;
-  color: #5f6877;
+  color: var(--text-muted);
   font-size: 14px;
   line-height: 1.65;
 }
@@ -596,8 +614,9 @@ onMounted(loadSummary);
 .step-action {
   width: fit-content;
   padding: 0 12px;
-  background: #26313f;
+  background: var(--text-main);
   color: #ffffff;
+  align-self: end;
 }
 
 .quick-link-grid {
@@ -608,24 +627,40 @@ onMounted(loadSummary);
 
 .quick-link-card {
   display: grid;
-  gap: 8px;
-  min-height: 96px;
+  gap: 10px;
+  min-height: 92px;
   padding: 16px;
 }
 
-.quick-link-card span {
+.quick-link-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   font-weight: 800;
+  color: var(--text-main);
+}
+
+.quick-link-title b {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--brand-primary);
+  font-size: 14px;
 }
 
 .quick-link-card small {
-  color: #66707f;
+  color: var(--text-muted);
   font-size: 13px;
   line-height: 1.5;
 }
 
 .stat-card:hover,
 .quick-link-card:hover {
-  border-color: #98a4b7;
+  border-color: rgba(75, 92, 240, 0.28);
 }
 
 @media (max-width: 1180px) {

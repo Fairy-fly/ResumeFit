@@ -34,7 +34,10 @@ const emit = defineEmits<{
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgb(18 24 38 / 0.42);
+  background:
+    radial-gradient(circle at 50% 12%, rgb(75 92 240 / 0.16), transparent 32%),
+    rgb(15 23 42 / 0.5);
+  backdrop-filter: blur(8px);
   padding: 24px;
 }
 
@@ -43,10 +46,12 @@ const emit = defineEmits<{
   grid-template-rows: auto minmax(0, 1fr);
   width: min(860px, 100%);
   max-height: 80vh;
-  border: 1px solid #dedfe3;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 24px 70px rgb(18 24 38 / 0.24);
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  animation: fadeUp 0.24s ease both;
 }
 
 .detail-modal-header {
@@ -54,7 +59,8 @@ const emit = defineEmits<{
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  border-bottom: 1px solid #edf0f4;
+  border-bottom: 1px solid var(--border-soft);
+  background: linear-gradient(135deg, #ffffff, #f8fbff);
   padding: 18px 20px;
 }
 
@@ -64,13 +70,13 @@ const emit = defineEmits<{
 }
 
 .detail-modal-header h2 {
-  color: #1d1f24;
+  color: var(--text-primary);
   font-size: 22px;
 }
 
 .detail-modal-header p {
   margin-top: 6px;
-  color: #667085;
+  color: var(--text-muted);
   line-height: 1.5;
 }
 
@@ -83,12 +89,20 @@ const emit = defineEmits<{
   flex: 0 0 auto;
   border: 0;
   border-radius: 8px;
-  background: #e6e9f2;
-  color: #263044;
+  background: var(--primary-soft);
+  color: var(--brand-primary);
   cursor: pointer;
   font: inherit;
   font-weight: 700;
   padding: 9px 14px;
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+.close-button:hover {
+  background: #dfe6ff;
+  transform: translateY(-1px);
 }
 
 @media (max-width: 760px) {

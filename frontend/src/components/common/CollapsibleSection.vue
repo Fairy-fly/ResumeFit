@@ -75,6 +75,7 @@ function toggleOpen(): void {
 .collapsible-section {
   display: grid;
   gap: 14px;
+  min-width: 0;
 }
 
 .collapsible-header {
@@ -90,15 +91,25 @@ function toggleOpen(): void {
   justify-content: space-between;
   flex: 1;
   min-width: 0;
-  border: 0;
-  border-radius: 8px;
-  background: #eef2ff;
-  color: #243b99;
+  border: 1px solid rgb(75 92 240 / 0.16);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #eef2ff, #f7faff);
+  color: var(--brand-primary);
   cursor: pointer;
   font: inherit;
   font-weight: 800;
   padding: 10px 12px;
   text-align: left;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.collapsible-toggle:hover {
+  border-color: rgb(75 92 240 / 0.28);
+  box-shadow: var(--shadow-xs);
+  transform: translateY(-1px);
 }
 
 .collapsible-title {
@@ -108,15 +119,18 @@ function toggleOpen(): void {
 }
 
 .collapsible-count {
-  color: #5967a8;
+  color: var(--text-muted);
   font-weight: 700;
 }
 
 .collapsible-state {
   flex: 0 0 auto;
-  color: #5967a8;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.72);
+  color: var(--brand-primary);
   font-size: 13px;
   font-weight: 800;
+  padding: 4px 8px;
 }
 
 .collapsible-actions {

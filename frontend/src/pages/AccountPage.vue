@@ -124,140 +124,196 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="page-header">
-    <div>
-      <p class="eyebrow">Account</p>
-      <h1>个人中心</h1>
-      <p>查看账户信息、调整昵称，并快速了解本月 AI 用量。</p>
-    </div>
-    <button type="button" :disabled="isLoading" @click="loadAccount">
-      {{ isLoading ? "正在刷新..." : "刷新" }}
-    </button>
-  </section>
-
-  <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
-  <p v-if="successMessage" class="success-text">{{ successMessage }}</p>
-  <p v-if="isLoading && !account" class="muted">正在加载账户信息...</p>
-
-  <template v-if="account">
-    <section class="account-grid">
-      <article class="panel account-card">
-        <div class="section-heading">
-          <h2>账户信息</h2>
-        </div>
-        <div class="account-info-grid">
-          <div class="account-field">
-            <span>邮箱</span>
-            <strong>{{ account.email }}</strong>
-          </div>
-          <div class="account-field">
-            <span>昵称</span>
-            <strong>{{ account.display_name }}</strong>
-          </div>
-          <div class="account-field">
-            <span>账号状态</span>
-            <strong>{{ statusLabel(account.status) }}</strong>
-          </div>
-          <div class="account-field">
-            <span>创建时间</span>
-            <strong>{{ formatDate(account.created_at) }}</strong>
-          </div>
-          <div class="account-field">
-            <span>更新时间</span>
-            <strong>{{ formatDate(account.updated_at) }}</strong>
-          </div>
-        </div>
-      </article>
-
-      <article class="panel account-card">
-        <div class="section-heading">
-          <h2>修改昵称</h2>
-        </div>
-        <form class="account-form" @submit.prevent="saveDisplayName">
-          <label>
-            昵称
-            <input v-model="displayName" type="text" maxlength="50" autocomplete="name" />
-          </label>
-          <p v-if="formError" class="error-text">{{ formError }}</p>
-          <button type="submit" :disabled="isSaving">
-            {{ isSaving ? "正在保存..." : "保存昵称" }}
-          </button>
-        </form>
-      </article>
-    </section>
-
-    <section class="panel">
-      <div class="section-heading account-section-heading">
-        <div>
-          <h2>用量概览</h2>
-          <p class="muted">本月额度、已用次数和最近 AI 调用摘要。</p>
-        </div>
-        <RouterLink class="secondary-link" to="/usage">查看详细用量</RouterLink>
+  <section class="account-page motion-page">
+    <header class="page-hero account-hero">
+      <div>
+        <p class="eyebrow">Account</p>
+        <h1 class="page-title">个人中心</h1>
+        <p>查看账户信息、调整昵称，并快速了解本月 AI 用量。</p>
       </div>
+      <button class="secondary-action" type="button" :disabled="isLoading" @click="loadAccount">
+        {{ isLoading ? "正在刷新..." : "刷新" }}
+      </button>
+    </header>
 
-      <div class="usage-overview-grid">
-        <article class="usage-stat">
-          <span>本月额度</span>
-          <strong>{{ account.usage_summary.monthly_quota }}</strong>
-        </article>
-        <article class="usage-stat">
-          <span>本月已用</span>
-          <strong>{{ account.usage_summary.monthly_used }}</strong>
-        </article>
-        <article class="usage-stat">
-          <span>剩余额度</span>
-          <strong>{{ account.usage_summary.monthly_remaining }}</strong>
-        </article>
-      </div>
+    <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
+    <p v-if="successMessage" class="success-text">{{ successMessage }}</p>
+    <p v-if="isLoading && !account" class="muted">正在加载账户信息...</p>
 
-      <div class="quota-bar" aria-label="本月 AI 调用额度使用进度">
-        <span :style="{ width: quotaPercent }"></span>
-      </div>
-
-      <div class="recent-section">
-        <h3>最近 AI 调用</h3>
-        <EmptyState
-          v-if="recentCalls.length === 0"
-          title="还没有 AI 调用记录"
-          description="完成 JD 分析、匹配报告、定制简历、真实性检测或面试追问后，这里会显示最近记录。"
-          action-text="去分析 JD"
-          action-to="/jobs"
-        />
-        <div v-else class="recent-call-list">
-          <article v-for="call in recentCalls" :key="call.id" class="recent-call-item">
-            <div>
-              <strong>{{ featureLabel(call.feature_type) }}</strong>
-              <span class="muted">{{ call.model_name }}</span>
+    <template v-if="account">
+      <section class="account-layout">
+        <div class="account-main">
+          <article class="settings-card account-card">
+            <div class="section-heading">
+              <h2>账户信息</h2>
+              <span class="status-pill">{{ statusLabel(account.status) }}</span>
             </div>
-            <div>
-              <span class="status-pill" :class="call.status">{{ callStatusLabel(call.status) }}</span>
-              <span class="muted">{{ formatDate(call.created_at) }}</span>
+            <div class="account-info-grid">
+              <div class="account-field">
+                <span>邮箱</span>
+                <strong>{{ account.email }}</strong>
+              </div>
+              <div class="account-field">
+                <span>昵称</span>
+                <strong>{{ account.display_name }}</strong>
+              </div>
+              <div class="account-field">
+                <span>账号角色</span>
+                <strong>{{ account.role }}</strong>
+              </div>
+              <div class="account-field">
+                <span>创建时间</span>
+                <strong>{{ formatDate(account.created_at) }}</strong>
+              </div>
+              <div class="account-field">
+                <span>更新时间</span>
+                <strong>{{ formatDate(account.updated_at) }}</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="settings-card usage-card">
+            <div class="section-heading account-section-heading">
+              <div>
+                <h2>用量概览</h2>
+                <p class="muted">本月额度、已用次数和最近 AI 调用摘要。</p>
+              </div>
+              <RouterLink class="secondary-link" to="/usage">查看详细用量</RouterLink>
+            </div>
+
+            <div class="usage-overview-grid">
+              <article class="usage-stat">
+                <span>本月额度</span>
+                <strong>{{ account.usage_summary.monthly_quota }}</strong>
+              </article>
+              <article class="usage-stat">
+                <span>本月已用</span>
+                <strong>{{ account.usage_summary.monthly_used }}</strong>
+              </article>
+              <article class="usage-stat">
+                <span>剩余额度</span>
+                <strong>{{ account.usage_summary.monthly_remaining }}</strong>
+              </article>
+            </div>
+
+            <div class="quota-bar" aria-label="本月 AI 调用额度使用进度">
+              <span :style="{ width: quotaPercent }"></span>
+            </div>
+
+            <div class="recent-section">
+              <h3>最近 AI 调用</h3>
+              <EmptyState
+                v-if="recentCalls.length === 0"
+                title="还没有 AI 调用记录"
+                description="完成 JD 分析、匹配报告、定制简历、真实性检测或面试追问后，这里会显示最近记录。"
+                action-text="去分析 JD"
+                action-to="/jobs"
+              />
+              <div v-else class="recent-call-list">
+                <article v-for="call in recentCalls" :key="call.id" class="recent-call-item">
+                  <div>
+                    <strong>{{ featureLabel(call.feature_type) }}</strong>
+                    <span class="muted">{{ call.model_name }}</span>
+                  </div>
+                  <div>
+                    <span class="status-pill" :class="call.status">{{ callStatusLabel(call.status) }}</span>
+                    <span class="muted">{{ formatDate(call.created_at) }}</span>
+                  </div>
+                </article>
+              </div>
             </div>
           </article>
         </div>
-      </div>
-    </section>
 
-    <section class="panel commerce-note">
-      <div>
-        <h2>会员与额度管理</h2>
-        <p class="muted">会员与额度管理后续开放。当前版本仅展示基础额度和用量统计，不包含支付、套餐或订单功能。</p>
-      </div>
-    </section>
-  </template>
+        <aside class="account-side">
+          <article class="settings-card account-card">
+            <div class="section-heading">
+              <h2>修改昵称</h2>
+              <p class="muted">昵称会显示在侧边栏和账户信息中。</p>
+            </div>
+            <form class="account-form" @submit.prevent="saveDisplayName">
+              <label>
+                昵称
+                <input v-model="displayName" type="text" maxlength="50" autocomplete="name" />
+              </label>
+              <p v-if="formError" class="error-text">{{ formError }}</p>
+              <button class="primary-action" type="submit" :disabled="isSaving">
+                {{ isSaving ? "正在保存..." : "保存昵称" }}
+              </button>
+            </form>
+          </article>
+
+          <article class="settings-card commerce-note">
+            <p class="eyebrow">Coming Later</p>
+            <h2>会员与额度管理</h2>
+            <p class="muted">
+              会员与额度管理后续开放。当前版本仅展示基础额度和用量统计，不包含支付、套餐或订单功能。
+            </p>
+          </article>
+        </aside>
+      </section>
+    </template>
+  </section>
 </template>
 
 <style scoped>
-.account-grid {
+.account-page {
   display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 22px;
 }
 
-.account-card {
-  align-content: start;
+.account-hero p {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+.secondary-action,
+.secondary-link {
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 800;
+  padding: 9px 14px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.account-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.account-main,
+.account-side,
+.account-card,
+.usage-card {
   display: grid;
   gap: 16px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-heading h2,
+.recent-section h3,
+.commerce-note h2 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.section-heading p,
+.commerce-note p {
+  margin: 4px 0 0;
 }
 
 .account-info-grid {
@@ -268,22 +324,23 @@ onMounted(() => {
 
 .account-field,
 .usage-stat {
-  border: 1px solid #eceef3;
-  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
   display: grid;
   gap: 8px;
+  background: #f8fafc;
   padding: 14px;
 }
 
 .account-field span,
 .usage-stat span {
-  color: #6b7280;
+  color: var(--text-muted);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 850;
 }
 
 .account-field strong {
-  color: #1d1f24;
+  color: var(--text-primary);
   font-size: 15px;
   overflow-wrap: anywhere;
 }
@@ -293,51 +350,57 @@ onMounted(() => {
   gap: 12px;
 }
 
+.account-form label {
+  display: grid;
+  gap: 8px;
+  color: var(--text-primary);
+  font-weight: 800;
+}
+
+.account-form input {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+}
+
+.primary-action {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--brand-gradient);
+  box-shadow: var(--shadow-button);
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 850;
+  justify-self: end;
+  padding: 11px 16px;
+}
+
 .account-section-heading {
   align-items: start;
-  display: flex;
-  gap: 16px;
-  justify-content: space-between;
-}
-
-.secondary-link {
-  align-items: center;
-  border: 1px solid #cfd3dc;
-  border-radius: 8px;
-  color: #1d1f24;
-  display: inline-flex;
-  font-weight: 700;
-  padding: 9px 12px;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.secondary-link:hover {
-  background: #f6f7f9;
 }
 
 .usage-overview-grid {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 16px;
 }
 
 .usage-stat strong {
-  color: #1d1f24;
+  color: var(--text-primary);
   font-size: 28px;
+  line-height: 1;
 }
 
 .quota-bar {
-  background: #eceef3;
+  background: #e2e8f0;
   border-radius: 999px;
   height: 10px;
-  margin-top: 16px;
   overflow: hidden;
 }
 
 .quota-bar span {
-  background: #2f6fed;
+  background: var(--brand-gradient);
   display: block;
   height: 100%;
 }
@@ -345,11 +408,6 @@ onMounted(() => {
 .recent-section {
   display: grid;
   gap: 12px;
-  margin-top: 22px;
-}
-
-.recent-section h3 {
-  margin: 0;
 }
 
 .recent-call-list {
@@ -359,8 +417,9 @@ onMounted(() => {
 
 .recent-call-item {
   align-items: center;
-  border: 1px solid #eceef3;
-  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
   display: flex;
   gap: 16px;
   justify-content: space-between;
@@ -376,43 +435,35 @@ onMounted(() => {
   justify-items: end;
 }
 
-.status-pill {
-  border-radius: 999px;
-  display: inline-flex;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 4px 8px;
-}
-
 .status-pill.success {
-  background: #e7f7ef;
-  color: #157347;
+  background: var(--success-soft);
+  color: var(--success);
 }
 
 .status-pill.failed {
-  background: #fdecec;
-  color: #b42318;
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .commerce-note {
-  background: #f8fafc;
+  background:
+    linear-gradient(135deg, #ffffff, #f8fbff),
+    radial-gradient(circle at right top, rgb(45 212 191 / 0.12), transparent 42%);
 }
 
-.commerce-note h2 {
-  margin-top: 0;
+@media (max-width: 1080px) {
+  .account-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
-@media (max-width: 900px) {
-  .account-grid,
+@media (max-width: 720px) {
+  .account-info-grid,
   .usage-overview-grid {
     grid-template-columns: 1fr;
   }
 
-  .account-info-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .account-section-heading,
+  .section-heading,
   .recent-call-item {
     align-items: stretch;
     flex-direction: column;
@@ -420,6 +471,10 @@ onMounted(() => {
 
   .recent-call-item > div:last-child {
     justify-items: start;
+  }
+
+  .primary-action {
+    justify-self: stretch;
   }
 }
 </style>
