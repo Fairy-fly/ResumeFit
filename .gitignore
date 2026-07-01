@@ -5,19 +5,27 @@
 *.db
 *.sqlite
 *.sqlite3
+*.log
 
 __pycache__/
+**/__pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 
+.venv/
+venv/
 backend/.venv/
 backend/venv/
 backend/resumefit.db
 
+node_modules/
+dist/
+build/
 frontend/node_modules/
 frontend/dist/
+frontend/build/
 frontend/.vite/
 
 *.tsbuildinfo
