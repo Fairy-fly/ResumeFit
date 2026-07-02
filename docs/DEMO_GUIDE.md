@@ -5,7 +5,8 @@
 ## 启动后端
 
 ```powershell
-cd D:\cxdownload\ResumeFit\backend
+cd ResumeFit
+cd backend
 .\.venv\Scripts\Activate.ps1
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -17,7 +18,8 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ## 启动前端
 
 ```powershell
-cd D:\cxdownload\ResumeFit\frontend
+cd ResumeFit
+cd frontend
 npm run dev
 ```
 
